@@ -1,0 +1,19 @@
+# Thư viện — cài lại bằng npm install
+node_modules/
+
+# Bí mật — chứa mật khẩu DB, KHÔNG được đẩy lên
+.env
+.env.local
+
+# Kết quả build
+dist/
+build/
+
+# Log & file tạm
+*.log
+npm-debug.log*
+
+# Editor / hệ điều hành
+.vscode/
+.idea/
+.DS_Store
