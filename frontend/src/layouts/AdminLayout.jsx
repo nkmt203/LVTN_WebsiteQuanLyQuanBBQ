@@ -42,11 +42,8 @@ function AdminLayout() {
               <NavLink to="/admin/units" className={linkClass}>
                 Đơn vị tính
               </NavLink>
-              <NavLink to="/admin/ingredients" className={linkClass}>
+              <NavLink to="" className={linkClass}>
                 Nguyên liệu
-              </NavLink>
-              <NavLink to="/admin/ingredient-categories" className={linkClass}>
-                Nhóm nguyên liệu
               </NavLink>
             </div>
           </div>

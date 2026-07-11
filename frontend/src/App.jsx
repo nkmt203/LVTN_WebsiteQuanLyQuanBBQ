@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AdminLayout from './layouts/AdminLayout';
-import FoodPage from './pages/admin/FoodPage';
-import CategoryPage from './pages/admin/CategoryPage';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import AdminLayout from "./layouts/AdminLayout";
+import FoodPage from "./pages/admin/FoodPage";
+import CategoryPage from "./pages/admin/CategoryPage";
+import UnitPage from "./pages/admin/UnitPage";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
           <Route index element={<Navigate to="food" replace />} />
           <Route path="food" element={<FoodPage />} />
           <Route path="categories" element={<CategoryPage />} />
+          <Route path="units" element={<UnitPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
