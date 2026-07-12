@@ -3,6 +3,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import FoodPage from "./pages/admin/FoodPage";
 import CategoryPage from "./pages/admin/CategoryPage";
 import UnitPage from "./pages/admin/UnitPage";
+import IngredientPage from './pages/admin/IngredientPage';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="food" element={<FoodPage />} />
           <Route path="categories" element={<CategoryPage />} />
           <Route path="units" element={<UnitPage />} />
+          <Route path="ingredients" element={<IngredientPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
