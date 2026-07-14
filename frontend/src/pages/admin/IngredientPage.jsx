@@ -61,7 +61,7 @@ function IngredientPage() {
     async function init() {
       // Tải danh sách đơn vị tính cho dropdown (lấy tất cả, không phân trang)
       try {
-        const resp = await getAllUnits({ limit: 100 });
+        const resp = await getAllUnits({ trang_thai: "Dang_dung", limit: 100 });
         setUnits(Array.isArray(resp.data) ? resp.data : []);
       } catch {}
       await loadData({ p: 1 });

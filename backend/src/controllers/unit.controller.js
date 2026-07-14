@@ -92,6 +92,20 @@ const updateUnit = async (req, res) => {
     if (trang_thai && !["Dang_dung", "Ngung_su_dung"].includes(trang_thai)) {
       return res.status(400).json({ message: "Trạng thái không hợp lệ" });
     }
+
+    if (trang_thai === "Ngung_su_dung") {
+      const [nlRows] = await pool.query(`
+        SELECT COUNT(*) AS soNL FROM NGUYEN_LIEU
+        WHERE ma_don_vi_tinh= ? AND trang_thai='Hoat_dong'
+        `,[id]);
+      if (nlRows[0].soNL > 0) {
+        return res
+          .status(409)
+          .json({
+            message: `Còn ${nlRows[0].soNL} nguyên liệu đang hoạt động dùng đơn vị này, không thể ngừng sử dụng`,
+          });
+      }
+    }
     const [result] = await pool.query(
       `
       UPDATE DON_VI_TINH SET ten_don_vi_tinh = ?, trang_thai=? WHERE ma_don_vi_tinh=?
@@ -117,16 +131,22 @@ const deleteUnit = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT ma_don_vi_tinh FROM DON_VI_TINH WHERE ma_don_vi_tinh=?
-      `,[id]);
+      `,
+      [id],
+    );
     if (rows.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy đơn vị tính" });
     }
 
-    const [countRows] = await pool.query(`
+    const [countRows] = await pool.query(
+      `
       SELECT COUNT(*) AS soNL FROM NGUYEN_LIEU WHERE ma_don_vi_tinh=?
-      `,[id]);
+      `,
+      [id],
+    );
     if (countRows[0].soNL > 0) {
       return res.status(409).json({
         message: "Không thể xóa đơn vị tính đang được sử dụng bởi nguyên liệu",

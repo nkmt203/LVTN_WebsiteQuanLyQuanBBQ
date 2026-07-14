@@ -11,7 +11,7 @@ import UnitFilterBar from "../../components/unit/UnitFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 
-const PER_PAGE = 7;
+const PER_PAGE = 8;
 
 function UnitPage() {
   const [units, setUnits] = useState([]);

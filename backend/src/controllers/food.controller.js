@@ -84,6 +84,28 @@ const createFood = async (req, res) => {
         .json({ message: "Vui lòng nhập đầy đủ tên món, danh mục và giá bán" });
     }
 
+    if (isNaN(Number(gia_ban)) || Number(gia_ban) < 0) {
+      xoaFileAnh(hinh_anh_url);
+      return res.status(400).json({ message: "Giá bán phải là số không âm" });
+    }
+    const [dm] = await pool.query(
+      `
+      SELECT trang_thai FROM DANH_MUC WHERE ma_danh_muc=?
+      `,
+      [ma_danh_muc],
+    );
+    if (dm.length === 0) {
+      xoaFileAnh(hinh_anh_url);
+      return res.status(400).json({ message: "Danh mục không tồn tại" });
+    }
+    if (dm[0].trang_thai === `Ngung_su_dung`) {
+      xoaFileAnh(hinh_anh_url);
+      return res.status(400).json({
+        message:
+          "Danh mục đang ngừng sử dụng, không thể thêm món vào danh mục này",
+      });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO MON_AN (ten_mon_an, ma_danh_muc, gia_ban, mo_ta, hinh_anh_url)
        VALUES (?, ?, ?, ?, ?)`,
@@ -115,6 +137,28 @@ const updateFood = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Vui lòng nhập đầy đủ tên món, danh mục và giá bán" });
+    }
+
+    if (isNaN(Number(gia_ban)) || Number(gia_ban) < 0) {
+      xoaFileAnh(req.file ? req.file.filename : null);
+      return res.status(400).json({ message: "Giá bán phải là số không âm" });
+    }
+    const [dm] = await pool.query(
+      `
+      SELECT trang_thai FROM DANH_MUC WHERE ma_danh_muc=?
+      `,
+      [ma_danh_muc],
+    );
+    if (dm.length === 0) {
+      xoaFileAnh(req.file ? req.file.filename : null);
+      return res.status(400).json({ message: "Danh mục không tồn tại" });
+    }
+    if (dm[0].trang_thai === `Ngung_su_dung`) {
+      xoaFileAnh(req.file ? req.file.filename : null);
+      return res.status(400).json({
+        message:
+          "Danh mục đang ngừng sử dụng, không thể thêm món vào danh mục này",
+      });
     }
 
     const [rows] = await pool.query(
@@ -152,6 +196,22 @@ const updateFoodStatus = async (req, res) => {
     const { trang_thai } = req.body;
     if (!["Dang_kinh_doanh", "Tam_ngung"].includes(trang_thai)) {
       return res.status(400).json({ message: "Trạng thái không hợp lệ" });
+    }
+
+    if (trang_thai === "Tam_ngung") {
+      const [dangCheBien] = await pool.query(
+        `
+        SELECT COUNT(*) AS soDon FROM CHI_TIET_HOA_DON
+        WHERE ma_mon_an=? 
+        AND trang_thai IN ('Cho_xac_nhan','Dang_che_bien')
+        `,
+        [id],
+      );
+      if (dangCheBien[0].soDon > 0) {
+        return res.status(409).json({
+          message: `Món đang có ${dangCheBien[0].soDon} đơn chưa hoàn thành, không thể tạm ngừng kinh doanh`,
+        });
+      }
     }
     const [result] = await pool.query(
       "UPDATE MON_AN SET trang_thai = ? WHERE ma_mon_an = ?",

@@ -125,6 +125,45 @@ const createRecipes = async (req, res) => {
         message: "Không được chọn trùng nguyên liệu trong 1 lần thêm",
       });
     }
+
+    //Kiểm tra món ăn tồn tại
+    const [foodCheck] = await pool.query(
+      `
+      SELECT trang_thai FROM MON_AN WHERE ma_mon_an=?
+      `,
+      [ma_mon_an],
+    );
+    if (foodCheck.length === 0) {
+      return res.status(400).json({ message: "Món ăn không tồn tại" });
+    }
+    if (foodCheck[0].trang_thai != "Dang_kinh_doanh") {
+      return res.status(400).json({
+        message: "Món ăn đang tạm ngừng, không thể thiết lập định mức",
+      });
+    }
+
+    //Kiểm tra all nguyên liệu tôn tại hoạt động
+    const [nlArr] = items.map((i) => i.ma_nguyen_lieu);
+    const [nlCheck] = await pool.query(
+      `
+      SELECT ma_nguyen_lieu, ten_nguyen_lieu, trang_thai
+      FROM NGUYEN_LIEU WHERE ma_nguyen_lieu IN (?)
+      `,
+      [nlArr],
+    );
+    if (nlCheck.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Có nguyên liệu không tồn tại trong hệ thống" });
+    }
+    const daNgung = nlCheck.filter((n) => n.trang_thai !== "Hoat_dong");
+    if (daNgung.length > 0) {
+      const tenNL = daNgung.map((n) => n.ten_nguyen_lieu).join(", ");
+      return res.status(400).json({
+        message: `Nguyên liệu đã ngừng sử dụng: ${tenNL}`,
+      });
+    }
+
     await conn.beginTransaction();
     for (const item of items) {
       await conn.query(
@@ -211,7 +250,7 @@ const updateRecipeStatus = async (req, res) => {
       [trang_thai, id],
     );
     if (result.affectedRows === 0) {
-      return res.statusZ(404).json({ message: "Không tìm thấy định mức" });
+      return res.status(404).json({ message: "Không tìm thấy định mức" });
     }
     res.json({ message: "Thay đổi trạng thái thành công" });
   } catch (err) {
@@ -221,7 +260,7 @@ const updateRecipeStatus = async (req, res) => {
 };
 
 //DELETE /api/recipes/:id
-const deletRecipe = async (req, res) => {
+const deleteRecipe = async (req, res) => {
   try {
     const { id } = req.params;
     const [result] = await pool.query(
@@ -247,5 +286,5 @@ module.exports = {
   createRecipes,
   updateRecipe,
   updateRecipeStatus,
-  deletRecipe,
+  deleteRecipe,
 };

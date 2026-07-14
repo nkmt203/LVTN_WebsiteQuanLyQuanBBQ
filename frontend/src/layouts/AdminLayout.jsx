@@ -46,7 +46,7 @@ function AdminLayout() {
                 Nguyên liệu
               </NavLink>
               <NavLink to="/admin/recipes" className={linkClass}>
-                Định mức NL
+                Định mức Nguyên liệu sử dụng
               </NavLink>
             </div>
           </div>

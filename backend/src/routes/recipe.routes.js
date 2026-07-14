@@ -7,5 +7,5 @@ router.get("/food/:foodId", recipeController.getRecipeByFood);
 router.post("/", recipeController.createRecipes);
 router.put("/:id", recipeController.updateRecipe);
 router.patch("/:id/status", recipeController.updateRecipeStatus);
-router.delete("/:id", recipeController.deletRecipe);
+router.delete("/:id", recipeController.deleteRecipe);
 module.exports = router;
