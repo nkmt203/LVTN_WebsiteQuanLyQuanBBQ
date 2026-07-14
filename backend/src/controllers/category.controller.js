@@ -20,7 +20,9 @@ const getAllCategories = async (req, res) => {
       params.push(trangThai);
     }
 
-    const dieuKien = conditions.length ? `WHERE ` + conditions.join(`AND`) : "";
+    const dieuKien = conditions.length
+      ? `WHERE ` + conditions.join(` AND `)
+      : "";
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM DANH_MUC ${dieuKien}`,
       params,
@@ -82,7 +84,7 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { ten_danh_muc, mo_ta, trang_thai } = req.body;
+    const { ten_danh_muc, mo_ta } = req.body;
 
     if (!ten_danh_muc || !ten_danh_muc.trim()) {
       return res.status(400).json({ message: "Vui lòng nhập tên danh mục" });
@@ -96,7 +98,7 @@ const updateCategory = async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: "Không tìm thấy danh mục" });
+      return res.status(404).json({ message: "Không tìm thấy danh mục" });
     }
     res.json({ message: "Cập nhật danh mục thành công" });
   } catch (err) {
@@ -129,6 +131,21 @@ const updateCategoryStatus = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Danh mục không còn tồn tại trên hệ thống" });
+    }
+
+    if (trang_thai === "Ngung_su_dung") {
+      const [monRows] = await pool.query(
+        `
+    SELECT COUNT(*) AS soMon FROM MON_AN
+    WHERE ma_danh_muc=? AND trang_thai='Dang_kinh_doanh'
+    `,
+        [id],
+      );
+      if (monRows[0].soMon > 0) {
+        return res.status(409).json({
+          message: `Danh mục còn ${monRows[0].soMon} món đang kinh doanh, không thể ngừng sử dụng`,
+        });
+      }
     }
 
     await pool.query(

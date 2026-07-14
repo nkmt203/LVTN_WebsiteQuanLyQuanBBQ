@@ -71,6 +71,23 @@ const createIngredient = async (req, res) => {
         message: "Vui lòng nhập đầy đủ tên nguyên liệu và đơn vị tính",
       });
     }
+
+    const [dvt] = await pool.query(
+      `
+      SELECT trang_thai FROM DON_VI_TINH WHERE ma_don_vi_tinh=?
+      `,
+      [ma_don_vi_tinh],
+    );
+    if (dvt.length === 0) {
+      return res.status(400).json({ message: "Đơn vị tính không tồn tại" });
+    }
+    if (dvt[0].trang_thai === "Ngung_su_dung") {
+      return res.status(400).json({
+        message:
+          "Đơn vị tính đang ngừng sử dụng, không thể chọn cho nguyên liệu",
+      });
+    }
+
     const [result] = await pool.query(
       `
       INSERT INTO NGUYEN_LIEU (ten_nguyen_lieu, ma_don_vi_tinh) 
@@ -103,6 +120,23 @@ const updateIngredient = async (req, res) => {
         message: "Vui lòng nhập đầy đủ tên nguyên liệu và đơn vị tính",
       });
     }
+
+    const [dvt] = await pool.query(
+      `
+      SELECT trang_thai FROM DON_VI_TINH WHERE ma_don_vi_tinh=?
+      `,
+      [ma_don_vi_tinh],
+    );
+    if (dvt.length === 0) {
+      return res.status(400).json({ message: "Đơn vị tính không tồn tại" });
+    }
+    if (dvt[0].trang_thai === "Ngung_su_dung") {
+      return res.status(400).json({
+        message:
+          "Đơn vị tính đang ngừng sử dụng, không thể chọn cho nguyên liệu",
+      });
+    }
+
     const [result] = await pool.query(
       `
       UPDATE NGUYEN_LIEU SET ten_nguyen_lieu=?, ma_don_vi_tinh=? 
@@ -149,17 +183,20 @@ const updateIngredientStatus = async (req, res) => {
     }
 
     //Kiểm ra nl có trong định mức món ăn không
-    const [dmRows] = await pool.query(
-      `
-      SELECT COUNT(*) AS soMon FROM DINH_MUC_NGUYEN_LIEU WHERE ma_nguyen_lieu=?
+
+    if (trang_thai === "Ngung_su_dung") {
+      const [dmRows] = await pool.query(
+        `
+      SELECT COUNT(*) AS soMon FROM DINH_MUC_NGUYEN_LIEU
+      WHERE ma_nguyen_lieu=? AND trang_thai='Hoat_dong'
       `,
-      [id],
-    );
-    if (dmRows[0].soMon > 0) {
-      return res.status(409).json({
-        message:
-          "Nguyên liệu đang được dùng trong định mức món ăn, không thể thay đổi trạng thái.",
-      });
+        [id],
+      );
+      if (dmRows[0].soMon > 0) {
+        return res.status(409).json({
+          message: `Nguyên liệu đang được dùng trong ${dmRows[0].soMon} định mức hoạt động, không thể thay đổi trạng thái.`,
+        });
+      }
     }
 
     await pool.query(
@@ -197,9 +234,11 @@ const deleteIngredient = async (req, res) => {
       SELECT
       (SELECT COUNT(*) FROM KHO_NGUYEN_LIEU WHERE ma_nguyen_lieu=?)+
        (SELECT COUNT(*) FROM DINH_MUC_NGUYEN_LIEU WHERE ma_nguyen_lieu=?)+
-        (SELECT COUNT(*) FROM CHI_TIET_NHAP_KHO WHERE ma_nguyen_lieu=?) AS tongRef
+        (SELECT COUNT(*) FROM CHI_TIET_NHAP_KHO WHERE ma_nguyen_lieu=?)+
+         (SELECT COUNT(*) FROM CHI_TIET_XUAT_KHO WHERE ma_nguyen_lieu=?) +
+          (SELECT COUNT(*) FROM NHAT_KY_HAO_HUT WHERE ma_nguyen_lieu=?) AS tongRef
       `,
-      [id, id, id],
+      [id, id, id, id, id],
     );
     if (refs[0].tongRef > 0) {
       return res.status(409).json({
