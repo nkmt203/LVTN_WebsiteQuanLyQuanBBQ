@@ -12,6 +12,8 @@ import CategoryFilterBar from "../../components/category/CategoryFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 
+import { getErrorMessage } from "../../api/errorHandler";
+
 const PER_PAGE = 7;
 
 function CategoryPage() {
@@ -48,7 +50,8 @@ function CategoryPage() {
       setTotalPages(resp.totalPages || 1);
       setPage(resp.page || 1);
     } catch (err) {
-      setMessage("❌ " + err.message);
+      // ...
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
