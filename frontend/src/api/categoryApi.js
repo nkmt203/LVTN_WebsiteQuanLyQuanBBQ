@@ -1,56 +1,22 @@
-import { BASE_URL } from "./apiConfig";
+import axiosClient from './axiosClient';
 
 export async function getAllCategories(params = {}) {
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== "" && v !== undefined && v !== null) {
-      qs.append(k, v);
-    }
-  });
-  const res = await fetch(`${BASE_URL}/categories?${qs.toString()}`);
-  if (!res.ok) throw new Error("Không tải được danh mục");
-  return res.json();
+  const res = await axiosClient.get('/categories', { params });
+  return res.data;
 }
-
 export async function createCategory(data) {
-  const res = await fetch(`${BASE_URL}/categories`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Thêm danh mục thật bại");
-  return result;
+  const res = await axiosClient.post('/categories', data);
+  return res.data;
 }
-
 export async function updateCategory(id, data) {
-  const res = await fetch(`${BASE_URL}/categories/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Cập nhật thất bại");
-  return result;
+  const res = await axiosClient.put(`/categories/${id}`, data);
+  return res.data;
 }
-
 export async function updateCategoryStatus(id, trang_thai) {
-  const res = await fetch(`${BASE_URL}/categories/${id}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ trang_thai }),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Đổi trạng thái thất bại");
-  return result;
+  const res = await axiosClient.patch(`/categories/${id}/status`, { trang_thai });
+  return res.data;
 }
-
 export async function deleteCategory(id) {
-  const res = await fetch(`${BASE_URL}/categories/${id}`, {
-    method: "DELETE",
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || "Xóa thất bại");
-  return result;
+  const res = await axiosClient.delete(`/categories/${id}`);
+  return res.data;
 }
-

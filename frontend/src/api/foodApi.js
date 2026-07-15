@@ -1,43 +1,26 @@
-import { BASE_URL } from './apiConfig';
+import axiosClient from './axiosClient';
 
 export async function getAllFood(params = {}) {
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== '' && v !== undefined && v !== null) qs.append(k, v);
-  });
-  const res = await fetch(`${BASE_URL}/food?${qs.toString()}`);
-  if (!res.ok) throw new Error('Không tải được danh sách món');
-  return res.json();
+  const res = await axiosClient.get('/food', { params });
+  return res.data;
 }
 
 export async function createFood(formData) {
-  const res = await fetch(`${BASE_URL}/food`, { method: 'POST', body: formData });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || 'Thêm món thất bại');
-  return result;
+  const res = await axiosClient.post('/food', formData);
+  return res.data;
 }
 
 export async function updateFood(id, formData) {
-  const res = await fetch(`${BASE_URL}/food/${id}`, { method: 'PUT', body: formData });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || 'Cập nhật thất bại');
-  return result;
+  const res = await axiosClient.put(`/food/${id}`, formData);
+  return res.data;
 }
 
 export async function updateFoodStatus(id, trang_thai) {
-  const res = await fetch(`${BASE_URL}/food/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ trang_thai }),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || 'Đổi trạng thái thất bại');
-  return result;
+  const res = await axiosClient.patch(`/food/${id}/status`, { trang_thai });
+  return res.data;
 }
 
 export async function deleteFood(id) {
-  const res = await fetch(`${BASE_URL}/food/${id}`, { method: 'DELETE' });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.message || 'Xóa thất bại');
-  return result;
+  const res = await axiosClient.delete(`/food/${id}`);
+  return res.data;
 }

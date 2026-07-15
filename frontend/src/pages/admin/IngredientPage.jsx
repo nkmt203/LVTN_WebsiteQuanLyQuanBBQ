@@ -12,6 +12,8 @@ import IngredientTable from "../../components/ingredient/IngredientTable";
 import IngredientFilterBar from "../../components/ingredient/IngredientFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import { getErrorMessage } from "../../api/errorHandler";
+// ...
 
 const PER_PAGE = 10;
 
@@ -53,7 +55,7 @@ function IngredientPage() {
       setTotalPages(resp.totalPages || 1);
       setPage(resp.page || 1);
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
