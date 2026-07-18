@@ -9,6 +9,7 @@ import CategoryPage from "./pages/admin/CategoryPage";
 import UnitPage from "./pages/admin/UnitPage";
 import IngredientPage from "./pages/admin/IngredientPage";
 import RecipePage from "./pages/admin/RecipePage";
+import TablePage from "./pages/admin/TablePage";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
             <Route path="units" element={<UnitPage />} />
             <Route path="ingredients" element={<IngredientPage />} />
             <Route path="recipes" element={<RecipePage />} />
+            <Route path="tables" element={<TablePage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />
