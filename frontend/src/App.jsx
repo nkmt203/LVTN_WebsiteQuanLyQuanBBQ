@@ -1,25 +1,36 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
+
+// Auth
 import LoginPage from "./pages/auth/LoginPage";
 import SelectProfilePage from "./pages/auth/SelectProfilePage";
+
+// Layouts
 import AdminLayout from "./layouts/AdminLayout";
+import ServerLayout from "./layouts/ServerLayout";
+
+// Admin pages
 import FoodPage from "./pages/admin/FoodPage";
 import CategoryPage from "./pages/admin/CategoryPage";
 import UnitPage from "./pages/admin/UnitPage";
 import IngredientPage from "./pages/admin/IngredientPage";
 import RecipePage from "./pages/admin/RecipePage";
 import TablePage from "./pages/admin/TablePage";
+import OrderPage from "./pages/server/OrderPage";
+// Server pages
+import TableMapPage from "./pages/server/TableMapPage";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/select-profile" element={<SelectProfilePage />} />
 
-          {/* Khu vực Admin - chặn theo vai trò */}
+          {/* Khu vực Admin */}
           <Route
             path="/admin"
             element={
@@ -37,6 +48,21 @@ function App() {
             <Route path="tables" element={<TablePage />} />
           </Route>
 
+          {/* Khu vực Phục vụ */}
+          <Route
+            path="/server"
+            element={
+              <ProtectedRoute allowedRoles={["Phuc_vu"]}>
+                <ServerLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="tables" replace />} />
+            <Route path="tables" element={<TableMapPage />} />
+            <Route path="order/:tableId" element={<OrderPage />} />
+          </Route>
+
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

@@ -41,6 +41,7 @@ function requireProfile(req, res, next) {
       message: "Vui lòng chọn hồ sơ trước khi thực hiện chức năng này",
     });
   }
+  next();
 }
 
 module.exports = {

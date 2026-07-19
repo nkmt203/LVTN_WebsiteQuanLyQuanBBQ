@@ -9,7 +9,8 @@ const ingredientRoutes = require("./routes/ingredient.routes");
 const recipeRoutes = require("./routes/recipe.routes");
 const authRouter = require("./routes/auth.routes");
 const tableRoutes = require("./routes/table.routes");
-
+const serviceTableRoutes = require("./routes/serviceTable.routes");
+const orderRoutes = require("./routes/order.routes");
 const app = express();
 
 app.use(cors());
@@ -25,4 +26,6 @@ app.use("/api/units", unitRoutes);
 app.use("/api/ingredients", ingredientRoutes);
 app.use("/api/recipes", recipeRoutes);
 app.use("/api/tables", tableRoutes);
+app.use("/api/service", serviceTableRoutes);
+app.use("/api/orders", orderRoutes);
 module.exports = app;

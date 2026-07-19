@@ -5,7 +5,7 @@ const { authenticate, authorize } = require("../middlewares/auth.middleware");
 
 router.use(authenticate);
 
-router.get("/", authorize("Admin", "Bep"), categoryController.getAllCategories);
+router.get("/", authorize("Admin", "Bep",'Phuc_vu'), categoryController.getAllCategories);
 router.post("/", authorize("Admin"), categoryController.createCategory);
 router.put("/:id", authorize("Admin"), categoryController.updateCategory);
 router.patch(
