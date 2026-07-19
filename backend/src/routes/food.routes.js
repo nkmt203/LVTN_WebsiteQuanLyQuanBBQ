@@ -6,7 +6,11 @@ const { authenticate, authorize } = require("../middlewares/auth.middleware");
 
 router.use(authenticate);
 
-router.get("/", foodController.getAllFood);
+router.get(
+  "/",
+  authorize("Admin", "Bep", "Phuc_vu"),
+  foodController.getAllFood,
+);
 router.post(
   "/",
   authorize("Admin"),

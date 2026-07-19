@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getProfiles, selectProfile } from '../../api/authApi';
-import { useAuth } from '../../context/AuthContext';
-import { getErrorMessage } from '../../api/errorHandler';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { getProfiles, selectProfile } from "../../api/authApi";
+import { useAuth } from "../../context/AuthContext";
+import { getErrorMessage } from "../../api/errorHandler";
 
 const roleToPath = {
-  Admin: '/admin/food',
-  Phuc_vu: '/server/tables',   // chưa làm — tạm để đây
-  Bep: '/kitchen',
-  Thu_ngan: '/cashier/bills',
+  Admin: "/admin/food",
+  Phuc_vu: "/server/tables",
+  Bep: "/kitchen", // chưa làm, Tin 3
+  Thu_ngan: "/cashier/bills", // chưa làm, Tin 4
 };
 
 function SelectProfilePage() {
   const [profiles, setProfiles] = useState([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { user, loginSession, logout } = useAuth();
@@ -35,7 +35,7 @@ function SelectProfilePage() {
     try {
       const resp = await selectProfile(ma_nhan_vien);
       loginSession(resp.token, resp.user);
-      const path = roleToPath[resp.user.ten_vai_tro] || '/admin/food';
+      const path = roleToPath[resp.user.ten_vai_tro] || "/admin/food";
       navigate(path);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -44,7 +44,7 @@ function SelectProfilePage() {
 
   function handleBackToLogin() {
     logout();
-    navigate('/login');
+    navigate("/login");
   }
 
   if (loading) return <p className="p-4 text-slate-500">Đang tải...</p>;
@@ -54,13 +54,18 @@ function SelectProfilePage() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Chọn hồ sơ nhân viên</h1>
+            <h1 className="text-xl font-bold text-slate-800">
+              Chọn hồ sơ nhân viên
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Thiết bị đã đăng nhập với vai trò <strong>{user?.ten_vai_tro}</strong>
+              Thiết bị đã đăng nhập với vai trò{" "}
+              <strong>{user?.ten_vai_tro}</strong>
             </p>
           </div>
-          <button onClick={handleBackToLogin}
-                  className="text-sm text-slate-500 hover:text-slate-700">
+          <button
+            onClick={handleBackToLogin}
+            className="text-sm text-slate-500 hover:text-slate-700"
+          >
             Đăng xuất thiết bị
           </button>
         </div>
@@ -73,17 +78,23 @@ function SelectProfilePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {profiles.map((nv) => (
-            <button key={nv.ma_nhan_vien}
-                    onClick={() => handleSelect(nv.ma_nhan_vien)}
-                    className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-800 hover:shadow-sm transition-all">
+            <button
+              key={nv.ma_nhan_vien}
+              onClick={() => handleSelect(nv.ma_nhan_vien)}
+              className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-800 hover:shadow-sm transition-all"
+            >
               <div className="text-slate-800 font-semibold">👤 {nv.ho_ten}</div>
-              <div className="text-xs text-slate-500 mt-1">{nv.so_dien_thoai}</div>
+              <div className="text-xs text-slate-500 mt-1">
+                {nv.so_dien_thoai}
+              </div>
             </button>
           ))}
         </div>
 
         {profiles.length === 0 && (
-          <p className="text-center text-slate-400 py-8">Không có hồ sơ nào cho vai trò này.</p>
+          <p className="text-center text-slate-400 py-8">
+            Không có hồ sơ nào cho vai trò này.
+          </p>
         )}
       </div>
     </div>
