@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,6 +11,10 @@ const linkClass = ({ isActive }) =>
 function ServerLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = 'Service Dashboard';
+  }, []);
 
   const handleLogout = () => {
     logout();

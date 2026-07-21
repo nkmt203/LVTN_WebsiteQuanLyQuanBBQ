@@ -14,3 +14,8 @@ export const cancelOrderItem = (id, ly_do_huy) =>
   axiosClient
     .delete(`/orders/${id}`, { data: { ly_do_huy } })
     .then((r) => r.data);
+
+export const requestPayment = (billId) =>
+  axiosClient
+    .post(`/orders/bills/${billId}/request-payment`)
+    .then((r) => r.data);

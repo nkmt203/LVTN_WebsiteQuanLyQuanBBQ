@@ -36,4 +36,9 @@ router.delete(
   c.cancelOrderItem,
 );
 
+router.post('/bills/:id/request-payment',
+  authorize('Phuc_vu', 'Admin'),
+  requireProfile,
+  c.requestPayment
+);
 module.exports = router;

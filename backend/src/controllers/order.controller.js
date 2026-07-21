@@ -347,9 +347,80 @@ const cancelOrderItem = async (req, res) => {
   }
 };
 
+// POST /api/orders/bills/:id/request-payment — phục vụ yêu cầu thu ngân xử lý
+const requestPayment = async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const { id } = req.params;
+
+    await conn.beginTransaction();
+
+    const [hdRows] = await conn.query(
+      `SELECT trang_thai FROM HOA_DON WHERE ma_hoa_don = ? FOR UPDATE`,
+      [id],
+    );
+    if (hdRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Không tìm thấy hóa đơn" });
+    }
+    if (hdRows[0].trang_thai !== "Dang_phuc_vu") {
+      await conn.rollback();
+      return res.status(409).json({
+        message: `Hóa đơn đang ở trạng thái "${hdRows[0].trang_thai}", không thể yêu cầu thanh toán.`,
+      });
+    }
+
+    // Kiểm tra: mọi món phải đã Da_hoan_thanh hoặc Da_huy
+    const [chuaXong] = await conn.query(
+      `SELECT COUNT(*) AS so_mon FROM CHI_TIET_HOA_DON
+       WHERE ma_hoa_don = ? AND trang_thai IN ('Cho_xac_nhan', 'Dang_che_bien')`,
+      [id],
+    );
+    if (chuaXong[0].so_mon > 0) {
+      await conn.rollback();
+      return res.status(409).json({
+        message: `Còn ${chuaXong[0].so_mon} món chưa hoàn thành. Vui lòng chờ bếp làm xong.`,
+      });
+    }
+
+    // Kiểm tra: mọi món hủy phải đã được bếp tiếp nhận
+    const [huyChuaTiep] = await conn.query(
+      `SELECT COUNT(*) AS so_mon FROM CHI_TIET_HOA_DON
+       WHERE ma_hoa_don = ? AND trang_thai = 'Da_huy'
+         AND (ghi_chu IS NULL OR ghi_chu NOT LIKE '%[BEP_OK]%')`,
+      [id],
+    );
+    if (huyChuaTiep[0].so_mon > 0) {
+      await conn.rollback();
+      return res.status(409).json({
+        message: `Còn ${huyChuaTiep[0].so_mon} yêu cầu hủy chưa được bếp tiếp nhận.`,
+      });
+    }
+
+    // Chuyển sang Cho_thanh_toan
+    await conn.query(
+      `UPDATE HOA_DON SET trang_thai = 'Cho_thanh_toan' WHERE ma_hoa_don = ?`,
+      [id],
+    );
+
+    await conn.commit();
+
+    bus.emit("cashier:payment-request", { ma_hoa_don: id });
+
+    res.json({ message: "Đã gửi yêu cầu thanh toán đến thu ngân" });
+  } catch (err) {
+    await conn.rollback();
+    console.error("Lỗi requestPayment:", err.message);
+    res.status(500).json({ message: "Lỗi server" });
+  } finally {
+    conn.release();
+  }
+};
+
 module.exports = {
   getBillByTable,
   addOrderItems,
   updateOrderItem,
   cancelOrderItem,
+  requestPayment,
 };

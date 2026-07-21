@@ -12,6 +12,8 @@ const tableRoutes = require("./routes/table.routes");
 const serviceTableRoutes = require("./routes/serviceTable.routes");
 const orderRoutes = require("./routes/order.routes");
 const kitchenRoutes = require("./routes/kitchen.routes");
+const cashierRoutes = require('./routes/cashier.routes');
+
 const app = express();
 
 app.use(cors());
@@ -30,4 +32,6 @@ app.use("/api/tables", tableRoutes);
 app.use("/api/service", serviceTableRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/kitchen", kitchenRoutes);
+// ...
+app.use('/api/cashier', cashierRoutes);
 module.exports = app;
