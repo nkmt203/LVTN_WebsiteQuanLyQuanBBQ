@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -13,6 +14,10 @@ function linkClass({ isActive }) {
 function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "Admin Dashboard";
+  }, []);
 
   function handleLogout() {
     logout();

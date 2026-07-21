@@ -25,6 +25,10 @@ import TableMapPage from "./pages/server/TableMapPage";
 import KitchenLayout from "./layouts/KitchenLayout";
 import KitchenPage from "./pages/kitchen/KitchenPage";
 
+//thu ngân
+import CashierLayout from "./layouts/CashierLayout";
+import CashierPage from "./pages/cashier/CashierPage";
+
 function App() {
   return (
     <AuthProvider>
@@ -76,6 +80,19 @@ function App() {
             }
           >
             <Route index element={<KitchenPage />} />
+          </Route>
+
+          {/* Khu vực Thu ngân */}
+          <Route
+            path="/cashier"
+            element={
+              <ProtectedRoute allowedRoles={["Thu_ngan"]}>
+                <CashierLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="bills" replace />} />
+            <Route path="bills" element={<CashierPage />} />
           </Route>
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTablesMap, openTable } from '../../api/serviceApi';
 import { getErrorMessage } from '../../api/errorHandler';
+
+const POLL_INTERVAL_MS = 5000;
 
 // Mapping trạng thái sang màu và nhãn
 const STATUS_STYLE = {
@@ -27,6 +29,7 @@ function TableMapPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
+  const timerRef = useRef(null);
 
   const loadTables = async () => {
     try {
@@ -42,6 +45,9 @@ function TableMapPage() {
       setLoading(false);
     };
     init();
+
+    timerRef.current = setInterval(loadTables, POLL_INTERVAL_MS);
+    return () => clearInterval(timerRef.current);
   }, []);
 
   const handleClickTable = async (b) => {

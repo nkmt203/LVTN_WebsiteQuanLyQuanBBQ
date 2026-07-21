@@ -2,5 +2,24 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-bill,
+  #printable-bill * {
+    visibility: visible;
+  }
+  #printable-bill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    border: none !important;
+  }
 }

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getBillByTable,
   submitOrderBatch,
   updateOrderItem,
   cancelOrderItem,
+  requestPayment,
 } from "../../api/orderApi";
 import { cancelTable } from "../../api/serviceApi";
 import { getAllFood } from "../../api/foodApi";
@@ -12,6 +13,8 @@ import { getAllCategories } from "../../api/categoryApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import Modal from "../../components/common/Modal";
+
+const POLL_INTERVAL_MS = 5000;
 
 const ITEM_STATUS = {
   Cho_xac_nhan: { cls: "bg-amber-50 text-amber-700", text: "Chờ xác nhận" },
@@ -43,6 +46,8 @@ function OrderPage() {
   const [cancellingItem, setCancellingItem] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
 
+  const timerRef = useRef(null);
+
   // ===== LOAD =====
   const loadBill = async () => {
     try {
@@ -70,6 +75,9 @@ function OrderPage() {
       setLoading(false);
     };
     init();
+
+    timerRef.current = setInterval(loadBill, POLL_INTERVAL_MS);
+    return () => clearInterval(timerRef.current);
   }, [tableId]);
 
   /// Menu đã lọc theo danh mục (không cần tìm kiếm nữa)
@@ -238,6 +246,21 @@ function OrderPage() {
     navigate("/server/tables");
   };
 
+  const handleRequestPayment = async () => {
+    if (
+      !window.confirm(
+        "Gửi yêu cầu thanh toán đến thu ngân? Sau bước này, bàn sẽ được thu ngân xử lý.",
+      )
+    )
+      return;
+    try {
+      const r = await requestPayment(bill.ma_hoa_don);
+      alert(r.message);
+      navigate("/server/tables");
+    } catch (err) {
+      setMessage("❌ " + getErrorMessage(err));
+    }
+  };
   // ===== RENDER =====
   if (loading) return <p className="text-slate-500">Đang tải...</p>;
   if (!bill)
@@ -273,6 +296,7 @@ function OrderPage() {
         bill={bill}
         onBack={handleGoBack}
         onCancelTable={handleCancelTable}
+        onRequestPayment={handleRequestPayment}
       />
 
       {message && (
@@ -452,7 +476,7 @@ function OrderPage() {
 // SUB-COMPONENTS
 // ============================================================
 
-const OrderHeader = ({ bill, onBack, onCancelTable }) => (
+const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment }) => (
   <div className="flex items-center justify-between mb-4">
     <div>
       <button
@@ -469,12 +493,20 @@ const OrderHeader = ({ bill, onBack, onCancelTable }) => (
       </h2>
       <p className="text-xs text-slate-500">Hoá đơn #{bill.ma_hoa_don}</p>
     </div>
-    <button
-      onClick={onCancelTable}
-      className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg"
-    >
-      Hủy mở bàn
-    </button>
+    <div className="flex gap-2">
+      <button
+        onClick={onCancelTable}
+        className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg"
+      >
+        Hủy mở bàn
+      </button>
+      <button
+        onClick={onRequestPayment}
+        className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium"
+      >
+        💰 Yêu cầu thanh toán
+      </button>
+    </div>
   </div>
 );
 

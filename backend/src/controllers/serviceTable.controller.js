@@ -131,7 +131,7 @@ const cancelTable = async (req, res) => {
     //Trả bàn trống+ xóa phiên
     await conn.query(
       `
-      UPDATE BAN SET trang_thai ='trong',phien_token_hien_tai= NULL WHERE ma_ban=?
+      UPDATE BAN SET trang_thai ='Trong',phien_token_hien_tai= NULL WHERE ma_ban=?
       `,
       [id],
     );
