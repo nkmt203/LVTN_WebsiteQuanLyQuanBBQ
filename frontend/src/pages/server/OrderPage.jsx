@@ -201,10 +201,7 @@ function OrderPage() {
   };
 
   const handleConfirmCancel = async () => {
-    if (!cancelReason.trim()) {
-      setMessage("❌ Vui lòng nhập lý do hủy");
-      return;
-    }
+    if (!cancelReason.trim()) return; // nút đã disabled, nhưng thêm cho chắc
     try {
       await cancelOrderItem(cancellingItem.ma_chi_tiet_hd, cancelReason.trim());
       setMessage(`✅ Đã hủy ${cancellingItem.ten_mon_an}`);
@@ -655,38 +652,91 @@ const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
   );
 };
 
-const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => (
-  <div className="flex flex-col gap-3">
-    <div className="text-sm text-slate-600">
-      Bạn đang hủy món này. Vui lòng cho biết lý do:
+const CANCEL_REASONS = ["Nhân viên bấm sai", "Khách đổi ý", "Chờ quá lâu"];
+
+const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
+  const [customReason, setCustomReason] = useState("");
+  const isCustom = reason === "__custom__";
+
+  // Lý do thực tế gửi lên BE: nếu chọn "Khác" thì lấy từ ô tự do
+  const finalReason = isCustom ? customReason.trim() : reason;
+
+  const handleConfirm = () => {
+    if (isCustom && !customReason.trim()) {
+      alert("Vui lòng nhập lý do cụ thể");
+      return;
+    }
+    // Ghi lý do thực vào state trước khi confirm
+    setReason(finalReason);
+    // Delay 1 tick cho setState kịp trước khi gọi confirm
+    setTimeout(onConfirm, 0);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-sm text-slate-600">
+        Bạn đang hủy món này. Vui lòng chọn lý do:
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {CANCEL_REASONS.map((r) => (
+          <label
+            key={r}
+            className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50"
+          >
+            <input
+              type="radio"
+              name="cancelReason"
+              value={r}
+              checked={reason === r}
+              onChange={(e) => setReason(e.target.value)}
+              className="accent-red-600"
+            />
+            <span className="text-sm text-slate-700">{r}</span>
+          </label>
+        ))}
+
+        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50">
+          <input
+            type="radio"
+            name="cancelReason"
+            value="__custom__"
+            checked={isCustom}
+            onChange={(e) => setReason(e.target.value)}
+            className="accent-red-600"
+          />
+          <span className="text-sm text-slate-700">Khác...</span>
+        </label>
+
+        {isCustom && (
+          <textarea
+            value={customReason}
+            onChange={(e) => setCustomReason(e.target.value)}
+            placeholder="Nhập lý do cụ thể..."
+            rows={2}
+            autoFocus
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+          />
+        )}
+      </div>
+
+      <div className="flex gap-2 justify-end mt-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
+        >
+          Đóng
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={!reason || (isCustom && !customReason.trim())}
+          className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Xác nhận hủy
+        </button>
+      </div>
     </div>
-    <div>
-      <label className="text-sm font-medium text-slate-600 mb-1 block">
-        Lý do hủy *
-      </label>
-      <textarea
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="VD: Khách đổi ý, hết nguyên liệu, gọi nhầm..."
-        rows={3}
-        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-      />
-    </div>
-    <div className="flex gap-2 justify-end mt-2">
-      <button
-        onClick={onCancel}
-        className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
-      >
-        Đóng
-      </button>
-      <button
-        onClick={onConfirm}
-        className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700"
-      >
-        Xác nhận hủy
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 export default OrderPage;
