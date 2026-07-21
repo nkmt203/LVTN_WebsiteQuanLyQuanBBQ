@@ -21,6 +21,10 @@ import OrderPage from "./pages/server/OrderPage";
 // Server pages
 import TableMapPage from "./pages/server/TableMapPage";
 
+//Bếp
+import KitchenLayout from "./layouts/KitchenLayout";
+import KitchenPage from "./pages/kitchen/KitchenPage";
+
 function App() {
   return (
     <AuthProvider>
@@ -62,6 +66,17 @@ function App() {
             <Route path="order/:tableId" element={<OrderPage />} />
           </Route>
 
+          {/* Khu vực Bếp */}
+          <Route
+            path="/kitchen"
+            element={
+              <ProtectedRoute allowedRoles={["Bep"]}>
+                <KitchenLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<KitchenPage />} />
+          </Route>
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

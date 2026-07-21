@@ -7,7 +7,7 @@ import { getErrorMessage } from "../../api/errorHandler";
 const roleToPath = {
   Admin: "/admin/food",
   Phuc_vu: "/server/tables",
-  Bep: "/kitchen", // chưa làm, Tin 3
+  Bep: "/kitchen", //
   Thu_ngan: "/cashier/bills", // chưa làm, Tin 4
 };
 
