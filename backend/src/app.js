@@ -13,6 +13,8 @@ const serviceTableRoutes = require("./routes/serviceTable.routes");
 const orderRoutes = require("./routes/order.routes");
 const kitchenRoutes = require("./routes/kitchen.routes");
 const cashierRoutes = require('./routes/cashier.routes');
+const supplierRoutes = require("./routes/supplier.routes");
+const warehouseRoutes = require("./routes/warehouse.routes");
 
 const app = express();
 
@@ -34,4 +36,6 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/kitchen", kitchenRoutes);
 // ...
 app.use('/api/cashier', cashierRoutes);
+app.use("/api/suppliers", supplierRoutes);
+app.use("/api/warehouse", warehouseRoutes);
 module.exports = app;

@@ -61,6 +61,17 @@ function AdminLayout() {
               <NavLink to="/admin/recipes" className={linkClass}>
                 Định mức Nguyên liệu sử dụng
               </NavLink>
+              <div>
+                <h2 className="text-xs uppercase text-gray-400 font-semibold px-2 mb-2 tracking-wider">
+                  Kho
+                </h2>
+                <NavLink to="/admin/warehouse" className={linkClass}>
+                  Kho
+                </NavLink>
+                <NavLink to="/admin/suppliers" className={linkClass}>
+                  Nhà cung cấp
+                </NavLink>
+              </div>
             </div>
           </div>
           <div>
