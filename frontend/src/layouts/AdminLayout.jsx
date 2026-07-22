@@ -26,7 +26,7 @@ function AdminLayout() {
 
   return (
     <div className="flex min-h-screen bg-slate-100">
-      <aside className="w-56 bg-white text-gray-800 flex flex-col p-4 shadow-md">
+      <aside className="w-56 h-screen sticky top-0 shrink-0 overflow-y-auto bg-white text-gray-800 flex flex-col p-4 shadow-md">
         <h1 className="text-lg font-bold mb-6 px-2 text-blue-600">
           🍖 BBQ Admin
         </h1>
@@ -81,6 +81,17 @@ function AdminLayout() {
             <div className="flex flex-col gap-1">
               <NavLink to="/admin/tables" className={linkClass}>
                 Bàn & Khu vực
+              </NavLink>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xs uppercase text-gray-400 font-semibold px-2 mb-2 tracking-wider">
+              Nhân sự
+            </h2>
+            <div className="flex flex-col gap-1">
+              <NavLink to="/admin/employees" className={linkClass}>
+                Nhân viên
               </NavLink>
             </div>
           </div>
