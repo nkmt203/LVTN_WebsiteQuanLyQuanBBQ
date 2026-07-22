@@ -1,0 +1,30 @@
+function EmployeeFilterBar({ keyword, setKeyword, maTaiKhoan, setMaTaiKhoan, trangThai, setTrangThai, accounts, onSearch, onReset }) {
+  const inp = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300';
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+      <input
+        className={inp + ' flex-1 min-w-[180px]'}
+        placeholder="Tìm theo họ tên, số điện thoại hoặc mã nhân viên"
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+      />
+      <select className={inp} value={maTaiKhoan} onChange={(e) => setMaTaiKhoan(e.target.value)}>
+        <option value="">Tất cả tài khoản</option>
+        {accounts.map((tk) => (
+          <option key={tk.ma_tai_khoan} value={tk.ma_tai_khoan}>{tk.ten_dang_nhap} ({tk.ten_vai_tro})</option>
+        ))}
+      </select>
+      <select className={inp} value={trangThai} onChange={(e) => setTrangThai(e.target.value)}>
+        <option value="">Tất cả trạng thái</option>
+        <option value="Hoat_dong">Hoạt động</option>
+        <option value="Ngung_hoat_dong">Ngừng hoạt động</option>
+      </select>
+      <button onClick={onSearch} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900">Tìm</button>
+      <button onClick={onReset} className="text-slate-500 text-sm hover:text-slate-700 px-2">Xóa lọc</button>
+    </div>
+  );
+}
+
+export default EmployeeFilterBar;
