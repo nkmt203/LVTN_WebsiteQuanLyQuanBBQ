@@ -17,6 +17,8 @@ import UnitPage from "./pages/admin/UnitPage";
 import IngredientPage from "./pages/admin/IngredientPage";
 import RecipePage from "./pages/admin/RecipePage";
 import TablePage from "./pages/admin/TablePage";
+import WarehousePage from "./pages/admin/WarehousePage";
+import SupplierPage from "./pages/admin/SupplierPage";
 import OrderPage from "./pages/server/OrderPage";
 // Server pages
 import TableMapPage from "./pages/server/TableMapPage";
@@ -54,6 +56,8 @@ function App() {
             <Route path="ingredients" element={<IngredientPage />} />
             <Route path="recipes" element={<RecipePage />} />
             <Route path="tables" element={<TablePage />} />
+            <Route path="warehouse" element={<WarehousePage />} />
+            <Route path="suppliers" element={<SupplierPage />} />
           </Route>
 
           {/* Khu vực Phục vụ */}
