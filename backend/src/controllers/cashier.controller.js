@@ -2,30 +2,91 @@ const pool = require('../config/db');
 const bus = require('../events/socketBus');
 
 // GET /api/cashier/bills — danh sách hóa đơn theo trạng thái
-// Query: ?trang_thai=Cho_thanh_toan hoặc Dang_phuc_vu
+// Query: ?trang_thai=Cho_thanh_toan | Dang_phuc_vu | Da_thanh_toan
+//        &tu_ngay=YYYY-MM-DD&den_ngay=YYYY-MM-DD (chỉ áp dụng khi Da_thanh_toan, để tra cứu lịch sử)
 const getBills = async (req, res) => {
   try {
     const trangThai = req.query.trang_thai || 'Cho_thanh_toan';
-    if (!['Cho_thanh_toan', 'Dang_phuc_vu'].includes(trangThai)) {
+    if (!['Cho_thanh_toan', 'Dang_phuc_vu', 'Da_thanh_toan'].includes(trangThai)) {
       return res.status(400).json({ message: 'Trạng thái không hợp lệ' });
     }
 
+    const params = [trangThai];
+    let dieuKienNgay = '';
+    if (trangThai === 'Da_thanh_toan') {
+      const tuNgay = req.query.tu_ngay || null;
+      const denNgay = req.query.den_ngay || null;
+      if (tuNgay) {
+        dieuKienNgay += ' AND hd.thoi_gian_dong_ban >= ?';
+        params.push(`${tuNgay} 00:00:00`);
+      }
+      if (denNgay) {
+        dieuKienNgay += ' AND hd.thoi_gian_dong_ban <= ?';
+        params.push(`${denNgay} 23:59:59`);
+      }
+    }
+
+    const sapXep =
+      trangThai === 'Da_thanh_toan'
+        ? 'hd.thoi_gian_dong_ban DESC'
+        : 'hd.thoi_gian_mo_ban ASC';
+
     const [rows] = await pool.query(
       `SELECT hd.ma_hoa_don, hd.ma_ban, b.ten_ban, kv.ten_khu_vuc,
-              hd.thoi_gian_mo_ban, hd.tong_tien_truoc_giam, hd.tong_tien_thanh_toan,
-              hd.trang_thai,
+              hd.thoi_gian_mo_ban, hd.thoi_gian_dong_ban,
+              hd.tong_tien_truoc_giam, hd.tong_tien_thanh_toan,
+              hd.hinh_thuc_thanh_toan, hd.trang_thai,
               (SELECT COUNT(*) FROM CHI_TIET_HOA_DON ct
                WHERE ct.ma_hoa_don = hd.ma_hoa_don AND ct.trang_thai != 'Da_huy') AS so_mon
        FROM HOA_DON hd
        JOIN BAN b ON hd.ma_ban = b.ma_ban
        JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
-       WHERE hd.trang_thai = ?
-       ORDER BY hd.thoi_gian_mo_ban ASC`,
-      [trangThai]
+       WHERE hd.trang_thai = ? ${dieuKienNgay}
+       ORDER BY ${sapXep}`,
+      params
     );
     res.json(rows);
   } catch (err) {
     console.error('Lỗi getBills:', err.message);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+// GET /api/cashier/revenue-summary — tổng hợp doanh thu theo khoảng ngày
+// Query: ?tu_ngay=YYYY-MM-DD&den_ngay=YYYY-MM-DD (mặc định: hôm nay)
+const getRevenueSummary = async (req, res) => {
+  try {
+    const homNay = new Date().toISOString().slice(0, 10);
+    const tuNgay = req.query.tu_ngay || homNay;
+    const denNgay = req.query.den_ngay || homNay;
+
+    const [rows] = await pool.query(
+      `SELECT hinh_thuc_thanh_toan, COUNT(*) AS so_hoa_don, SUM(tong_tien_thanh_toan) AS tong_tien
+       FROM HOA_DON
+       WHERE trang_thai = 'Da_thanh_toan'
+         AND thoi_gian_dong_ban >= ? AND thoi_gian_dong_ban <= ?
+       GROUP BY hinh_thuc_thanh_toan`,
+      [`${tuNgay} 00:00:00`, `${denNgay} 23:59:59`]
+    );
+
+    const theoHinhThuc = { Tien_mat: 0, Chuyen_khoan: 0 };
+    let tongSoHoaDon = 0;
+    let tongDoanhThu = 0;
+    for (const r of rows) {
+      theoHinhThuc[r.hinh_thuc_thanh_toan] = Number(r.tong_tien);
+      tongSoHoaDon += Number(r.so_hoa_don);
+      tongDoanhThu += Number(r.tong_tien);
+    }
+
+    res.json({
+      tu_ngay: tuNgay,
+      den_ngay: denNgay,
+      tong_so_hoa_don: tongSoHoaDon,
+      tong_doanh_thu: tongDoanhThu,
+      theo_hinh_thuc: theoHinhThuc,
+    });
+  } catch (err) {
+    console.error('Lỗi getRevenueSummary:', err.message);
     res.status(500).json({ message: 'Lỗi server' });
   }
 };
@@ -161,4 +222,4 @@ const payBill = async (req, res) => {
   }
 };
 
-module.exports = { getBills, getBillDetail, payBill };
+module.exports = { getBills, getBillDetail, payBill, getRevenueSummary };

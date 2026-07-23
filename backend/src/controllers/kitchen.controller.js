@@ -5,7 +5,6 @@ const bus = require("../events/socketBus");
 // GET /api/kitchen/orders — danh sách món cho bếp xử lý
 // Bao gồm:
 //   - Món Cho_xac_nhan / Dang_che_bien (đang cần làm)
-//   - Món Da_hoan_thanh trong 30 phút gần đây (để bếp thấy còn tồn)
 //   - Món Da_huy mà bếp CHƯA tiếp nhận (chưa bấm "Đã dừng chế biến")
 // ============================================================
 const getPendingOrders = async (req, res) => {
@@ -39,8 +38,8 @@ const getPendingOrders = async (req, res) => {
     `);
     res.json(rows);
   } catch (err) {
-    console.error('Lỗi getPendingOrders:', err.message);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error("Lỗi getPendingOrders:", err.message);
+    res.status(500).json({ message: "Lỗi server" });
   }
 };
 
@@ -88,12 +87,17 @@ const completeOrderItem = async (req, res) => {
     );
 
     // 3. TỰ ĐỘNG TRỪ KHO — lấy định mức nguyên liệu của món
+    // LEFT JOIN + COALESCE: nguyên liệu chưa từng nhập kho (chưa có dòng
+    // KHO_NGUYEN_LIEU) vẫn phải được xét tới, coi tồn hiện tại = 0, để không
+    // bị bỏ sót khỏi việc ghi nhật ký hao hụt / cảnh báo thiếu hụt.
     const [dinhMuc] = await conn.query(
       `SELECT dm.ma_nguyen_lieu, dm.so_luong_su_dung,
-              nl.ten_nguyen_lieu, k.ma_kho, k.so_luong_ton, k.muc_ton_toi_thieu
+              nl.ten_nguyen_lieu, k.ma_kho,
+              COALESCE(k.so_luong_ton, 0) AS so_luong_ton,
+              COALESCE(k.muc_ton_toi_thieu, 0) AS muc_ton_toi_thieu
        FROM DINH_MUC_NGUYEN_LIEU dm
        JOIN NGUYEN_LIEU nl ON dm.ma_nguyen_lieu = nl.ma_nguyen_lieu
-       JOIN KHO_NGUYEN_LIEU k ON dm.ma_nguyen_lieu = k.ma_nguyen_lieu
+       LEFT JOIN KHO_NGUYEN_LIEU k ON dm.ma_nguyen_lieu = k.ma_nguyen_lieu
        WHERE dm.ma_mon_an = ? AND dm.trang_thai = 'Hoat_dong'
        FOR UPDATE`,
       [cur.ma_mon_an],
@@ -146,12 +150,22 @@ const completeOrderItem = async (req, res) => {
         trangThaiMoi = "Con_hang";
       }
 
-      await conn.query(
-        `UPDATE KHO_NGUYEN_LIEU
-         SET so_luong_ton = ?, trang_thai_ton = ?
-         WHERE ma_kho = ?`,
-        [tonMoi, trangThaiMoi, nl.ma_kho],
-      );
+      if (nl.ma_kho) {
+        await conn.query(
+          `UPDATE KHO_NGUYEN_LIEU
+           SET so_luong_ton = ?, trang_thai_ton = ?
+           WHERE ma_kho = ?`,
+          [tonMoi, trangThaiMoi, nl.ma_kho],
+        );
+      } else {
+        // Chưa từng có dòng kho cho nguyên liệu này — tạo mới luôn để từ
+        // giờ được theo dõi tồn kho như các nguyên liệu khác.
+        await conn.query(
+          `INSERT INTO KHO_NGUYEN_LIEU (ma_nguyen_lieu, so_luong_ton, muc_ton_toi_thieu, trang_thai_ton)
+           VALUES (?, ?, 0, ?)`,
+          [nl.ma_nguyen_lieu, tonMoi, trangThaiMoi],
+        );
+      }
 
       // 3d. Cảnh báo tồn xuống thấp (nếu vừa vượt ngưỡng)
       if (tonHienTai >= mucToiThieu && tonMoi < mucToiThieu) {
@@ -235,47 +249,8 @@ const acknowledgeCancellation = async (req, res) => {
   }
 };
 
-// GET /api/kitchen/bills/:billId — chi tiết đầy đủ 1 bill (cho bếp xem lại)
-const getBillDetail = async (req, res) => {
-  try {
-    const { billId } = req.params;
-
-    const [hdRows] = await pool.query(
-      `SELECT hd.ma_hoa_don, hd.thoi_gian_mo_ban, hd.trang_thai AS trang_thai_hd,
-              b.ten_ban, kv.ten_khu_vuc
-       FROM HOA_DON hd
-       JOIN BAN b ON hd.ma_ban = b.ma_ban
-       JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
-       WHERE hd.ma_hoa_don = ?`,
-      [billId],
-    );
-    if (hdRows.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy hóa đơn" });
-    }
-
-    const [items] = await pool.query(
-      `SELECT ct.ma_chi_tiet_hd, ct.ma_mon_an, m.ten_mon_an,
-              ct.so_luong, ct.ghi_chu, ct.trang_thai, ct.nguon_goi_mon,
-              ct.thoi_gian_goi_mon, ct.thoi_gian_xac_nhan,
-              nv.ho_ten AS ten_nv_goi
-       FROM CHI_TIET_HOA_DON ct
-       JOIN MON_AN m ON ct.ma_mon_an = m.ma_mon_an
-       LEFT JOIN NHAN_VIEN nv ON ct.ma_nv_xac_nhan = nv.ma_nhan_vien
-       WHERE ct.ma_hoa_don = ?
-       ORDER BY ct.thoi_gian_goi_mon ASC`,
-      [billId],
-    );
-
-    res.json({ hoaDon: hdRows[0], items });
-  } catch (err) {
-    console.error("Lỗi getBillDetail:", err.message);
-    res.status(500).json({ message: "Lỗi server" });
-  }
-};
-
 module.exports = {
   getPendingOrders,
   completeOrderItem,
   acknowledgeCancellation,
-  getBillDetail,
 };

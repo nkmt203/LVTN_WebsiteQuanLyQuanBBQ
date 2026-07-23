@@ -17,11 +17,6 @@ const STATUS_STYLE = {
     text: 'text-blue-700',
     label: 'Đang phục vụ',
   },
-  Da_dat_truoc: {
-    bg: 'bg-amber-50 border-amber-300 hover:border-amber-500',
-    text: 'text-amber-700',
-    label: 'Đã đặt trước',
-  },
 };
 
 function TableMapPage() {
@@ -72,9 +67,6 @@ function TableMapPage() {
       }
       return;
     }
-
-    // Bàn đã đặt trước - Tin sau xử lý (đặt bàn)
-    setMessage('Bàn đã đặt trước - chức năng đón khách đặt trước sẽ làm sau.');
   };
 
   // Nhóm bàn theo khu vực để hiển thị
@@ -109,10 +101,6 @@ function TableMapPage() {
         <span className="flex items-center gap-1">
           <span className="w-3 h-3 rounded bg-blue-200 border border-blue-500"></span>
           Đang phục vụ
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded bg-amber-200 border border-amber-400"></span>
-          Đã đặt trước
         </span>
       </div>
 

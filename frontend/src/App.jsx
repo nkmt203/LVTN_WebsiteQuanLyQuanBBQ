@@ -20,6 +20,7 @@ import TablePage from "./pages/admin/TablePage";
 import WarehousePage from "./pages/admin/WarehousePage";
 import SupplierPage from "./pages/admin/SupplierPage";
 import EmployeePage from "./pages/admin/EmployeePage";
+import RevenuePage from "./pages/admin/RevenuePage";
 import OrderPage from "./pages/server/OrderPage";
 // Server pages
 import TableMapPage from "./pages/server/TableMapPage";
@@ -60,6 +61,7 @@ function App() {
             <Route path="warehouse" element={<WarehousePage />} />
             <Route path="suppliers" element={<SupplierPage />} />
             <Route path="employees" element={<EmployeePage />} />
+            <Route path="revenue" element={<RevenuePage />} />
           </Route>
 
           {/* Khu vực Phục vụ */}

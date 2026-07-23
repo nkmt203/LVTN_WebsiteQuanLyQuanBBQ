@@ -7,7 +7,6 @@ import {
 } from "../../api/supplierApi";
 import SupplierForm from "../../components/supplier/SupplierForm";
 import SupplierTable from "../../components/supplier/SupplierTable";
-import SupplierFilterBar from "../../components/supplier/SupplierFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 
@@ -19,9 +18,6 @@ function SupplierPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-
-  const [keyword, setKeyword] = useState("");
-  const [trangThai, setTrangThai] = useState("");
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -36,13 +32,9 @@ function SupplierPage() {
 
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
-    const kw = opts.keyword ?? keyword;
-    const tt = opts.trangThai ?? trangThai;
 
     try {
       const resp = await getAllSuppliers({
-        keyword: kw,
-        trang_thai: tt,
         page: p,
         limit: PER_PAGE,
       });
@@ -63,14 +55,6 @@ function SupplierPage() {
     init();
   }, []);
 
-  function handleSearch() {
-    loadData({ p: 1 });
-  }
-  function handleReset() {
-    setKeyword("");
-    setTrangThai("");
-    loadData({ p: 1, keyword: "", trangThai: "" });
-  }
   function handlePageChange(p) {
     loadData({ p });
   }
@@ -157,15 +141,6 @@ function SupplierPage() {
           {message}
         </div>
       )}
-
-      <SupplierFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
 
       <SupplierTable
         suppliers={suppliers}

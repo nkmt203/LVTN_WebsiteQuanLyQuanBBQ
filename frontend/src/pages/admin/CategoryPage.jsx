@@ -109,7 +109,7 @@ function CategoryPage() {
       closeForm();
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -121,7 +121,7 @@ function CategoryPage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -132,7 +132,7 @@ function CategoryPage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 

@@ -20,7 +20,6 @@ function TableFilterBar({ keyword, setKeyword, khuVuc, setKhuVuc, trangThai, set
         <option value="">Tất cả trạng thái</option>
         <option value="Trong">Trống</option>
         <option value="Dang_su_dung">Đang sử dụng</option>
-        <option value="Da_dat_truoc">Đã đặt trước</option>
       </select>
       <button onClick={onSearch} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900">
         Tìm

@@ -95,6 +95,17 @@ function AdminLayout() {
               </NavLink>
             </div>
           </div>
+
+          <div>
+            <h2 className="text-xs uppercase text-gray-400 font-semibold px-2 mb-2 tracking-wider">
+              Báo cáo
+            </h2>
+            <div className="flex flex-col gap-1">
+              <NavLink to="/admin/revenue" className={linkClass}>
+                Doanh thu
+              </NavLink>
+            </div>
+          </div>
         </nav>
 
         {/* Khu thông tin user + nút Đăng xuất, ghim đáy sidebar */}

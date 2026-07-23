@@ -7,12 +7,13 @@ import {
   cancelOrderItem,
   requestPayment,
 } from "../../api/orderApi";
-import { cancelTable } from "../../api/serviceApi";
+import { cancelTable, getTablesMap, transferTable } from "../../api/serviceApi";
 import { getAllFood } from "../../api/foodApi";
 import { getAllCategories } from "../../api/categoryApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import Modal from "../../components/common/Modal";
+import TransferTargetPicker from "../../components/table/TransferTargetPicker";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -45,6 +46,10 @@ function OrderPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancellingItem, setCancellingItem] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Modal chuyển bàn
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [emptyTables, setEmptyTables] = useState([]);
 
   const timerRef = useRef(null);
 
@@ -233,6 +238,29 @@ function OrderPage() {
     }
   };
 
+  // ===== CHUYỂN BÀN =====
+  const handleOpenTransfer = async () => {
+    try {
+      const map = await getTablesMap();
+      setEmptyTables(map.filter((t) => t.trang_thai === "Trong"));
+      setTransferOpen(true);
+    } catch (err) {
+      setMessage("❌ " + getErrorMessage(err));
+    }
+  };
+
+  const handleConfirmTransfer = async (banDich) => {
+    try {
+      const r = await transferTable(tableId, banDich.ma_ban);
+      alert(r.message);
+      setTransferOpen(false);
+      // Chuyển sang xem tiếp đơn tại bàn đích vừa nhận
+      navigate(`/server/order/${banDich.ma_ban}`);
+    } catch (err) {
+      setMessage("❌ " + getErrorMessage(err));
+    }
+  };
+
   // ===== QUAY LẠI SƠ ĐỒ BÀN (hỏi nếu còn giỏ tạm) =====
   const handleGoBack = () => {
     if (pending.length > 0) {
@@ -297,7 +325,17 @@ function OrderPage() {
         onBack={handleGoBack}
         onCancelTable={handleCancelTable}
         onRequestPayment={handleRequestPayment}
+        onTransfer={handleOpenTransfer}
       />
+
+      {/* Modal chuyển bàn: chọn 1 bàn Trống làm bàn đích */}
+      <Modal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        title={`Chuyển "${bill.ten_ban}" sang bàn nào?`}
+      >
+        <TransferTargetPicker tables={emptyTables} onPick={handleConfirmTransfer} />
+      </Modal>
 
       {message && (
         <div className="mb-3 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
@@ -305,11 +343,11 @@ function OrderPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-160px)]">
         {/* CỘT TRÁI: MENU */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4 flex flex-col lg:h-full lg:overflow-hidden">
           {/* Thanh chip danh mục */}
-          <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="shrink-0 flex flex-wrap gap-2 mb-3 pb-3 border-b border-slate-100">
             <CategoryChip
               label={`Tất cả (${foods.length})`}
               active={selectedCat === ""}
@@ -330,30 +368,32 @@ function OrderPage() {
             })}
           </div>
 
-          {/* Grid món ăn - nhiều cột, thẻ compact xl:grid-cols-7 */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-7 gap-2">
-            {filteredFoods.length === 0 ? (
-              <p className="text-slate-400 text-sm col-span-full text-center py-8">
-                Danh mục này chưa có món nào.
-              </p>
-            ) : (
-              filteredFoods.map((mon) => (
-                <FoodCard
-                  key={mon.ma_mon_an}
-                  mon={mon}
-                  onClick={handleAddFoodToPending}
-                />
-              ))
-            )}
+          {/* Grid món ăn - cuộn riêng bên trong, không kéo dài cả trang */}
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-9 gap-2">
+              {filteredFoods.length === 0 ? (
+                <p className="text-slate-400 text-sm col-span-full text-center py-8">
+                  Danh mục này chưa có món nào.
+                </p>
+              ) : (
+                filteredFoods.map((mon) => (
+                  <FoodCard
+                    key={mon.ma_mon_an}
+                    mon={mon}
+                    onClick={handleAddFoodToPending}
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
 
         {/* CỘT PHẢI: GIỎ */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 lg:h-full lg:overflow-hidden">
           {/* GIỎ TẠM (chưa gửi) */}
-          <div className="bg-amber-50 rounded-xl border-2 border-amber-300 p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-amber-800">
+          <div className="shrink-0 bg-amber-50 rounded-xl border-2 border-amber-300 p-3">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-semibold text-amber-800">
                 🛒 Chờ xác nhận ({pending.length})
               </h3>
               {pending.length > 0 && (
@@ -366,9 +406,9 @@ function OrderPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2 max-h-[280px] overflow-y-auto">
+            <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto">
               {pending.length === 0 ? (
-                <p className="text-amber-600 text-xs text-center py-4 italic">
+                <p className="text-amber-600 text-xs text-center py-3 italic">
                   Bấm món ở menu bên trái để thêm vào đây
                 </p>
               ) : (
@@ -388,7 +428,7 @@ function OrderPage() {
               <button
                 onClick={handleSubmitBatch}
                 disabled={submitting}
-                className="w-full mt-3 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 disabled:opacity-50"
+                className="w-full mt-2 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
               >
                 {submitting
                   ? "Đang gửi..."
@@ -398,11 +438,11 @@ function OrderPage() {
           </div>
 
           {/* MÓN ĐÃ GỬI */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h3 className="font-semibold text-slate-800 mb-3">
+          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl border border-slate-200 p-3">
+            <h3 className="shrink-0 text-sm font-semibold text-slate-800 mb-2">
               Món đã gọi ({activeSent.length})
             </h3>
-            <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5">
               {visibleSent.length === 0 ? (
                 <p className="text-slate-400 text-sm text-center py-6">
                   Chưa gửi món nào xuống bếp.
@@ -432,22 +472,22 @@ function OrderPage() {
           </div>
 
           {/* TỔNG TIỀN */}
-          <div className="bg-slate-800 text-white rounded-xl p-4">
-            <div className="flex justify-between text-sm mb-1">
+          <div className="shrink-0 bg-slate-800 text-white rounded-xl p-3">
+            <div className="flex justify-between text-xs mb-1">
               <span className="text-slate-300">Đã gửi:</span>
               <span>{sentTotal.toLocaleString("vi-VN")}đ</span>
             </div>
             {pending.length > 0 && (
-              <div className="flex justify-between text-sm mb-1">
+              <div className="flex justify-between text-xs mb-1">
                 <span className="text-amber-300">Chờ gửi:</span>
                 <span className="text-amber-300">
                   {pendingTotal.toLocaleString("vi-VN")}đ
                 </span>
               </div>
             )}
-            <div className="border-t border-slate-600 mt-2 pt-2 flex justify-between items-center">
+            <div className="border-t border-slate-600 mt-1.5 pt-1.5 flex justify-between items-center">
               <span className="text-sm text-slate-300">Tổng cộng:</span>
-              <span className="text-xl font-bold">
+              <span className="text-lg font-bold">
                 {grandTotal.toLocaleString("vi-VN")}đ
               </span>
             </div>
@@ -476,7 +516,7 @@ function OrderPage() {
 // SUB-COMPONENTS
 // ============================================================
 
-const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment }) => (
+const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer }) => (
   <div className="flex items-center justify-between mb-4">
     <div>
       <button
@@ -494,6 +534,12 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment }) => (
       <p className="text-xs text-slate-500">Hoá đơn #{bill.ma_hoa_don}</p>
     </div>
     <div className="flex gap-2">
+      <button
+        onClick={onTransfer}
+        className="text-sm text-slate-600 border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-lg"
+      >
+        🔀 Chuyển bàn
+      </button>
       <button
         onClick={onCancelTable}
         className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg"
@@ -513,7 +559,7 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment }) => (
 const FoodCard = ({ mon, onClick }) => (
   <button
     onClick={() => onClick(mon)}
-    className="text-left bg-slate-50 border border-slate-200 rounded-lg p-1.5 hover:border-amber-400 hover:bg-amber-50 transition-all"
+    className="flex flex-col items-center text-center bg-slate-50 border border-slate-200 rounded-lg p-1.5 hover:border-amber-400 hover:bg-amber-50 transition-all"
   >
     {mon.hinh_anh_url ? (
       <img
@@ -523,18 +569,15 @@ const FoodCard = ({ mon, onClick }) => (
           e.target.onerror = null;
           e.target.src = "/no-image.png";
         }}
-        className="w-full aspect-square object-cover rounded mb-1"
+        className="w-10 h-10 object-cover rounded mb-1"
       />
     ) : (
-      <div className="w-full aspect-square bg-slate-100 rounded mb-1 flex items-center justify-center text-slate-300 text-xs">
+      <div className="w-10 h-10 bg-slate-100 rounded mb-1 flex items-center justify-center text-slate-300 text-[10px]">
         Không ảnh
       </div>
     )}
-    <div className="text-xs font-medium text-slate-800 line-clamp-2 min-h-[2rem]">
+    <div className="text-xs font-medium text-slate-800 line-clamp-2">
       {mon.ten_mon_an}
-    </div>
-    <div className="text-xs text-amber-700 font-semibold mt-0.5">
-      {Number(mon.gia_ban).toLocaleString("vi-VN")}đ
     </div>
   </button>
 );
@@ -551,58 +594,54 @@ const CategoryChip = ({ label, active, onClick }) => (
     {label}
   </button>
 );
-// Dòng món trong giỏ tạm — chỉnh trực tiếp inline
+// Dòng món trong giỏ tạm — gọn 1 hàng (tên + SL +/- + thành tiền + xóa), ghi chú ở hàng phụ bên dưới
 const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
-  <div className="bg-white border border-amber-200 rounded-lg p-2">
-    <div className="flex justify-between items-start gap-2">
-      <div className="flex-1">
-        <div className="text-sm font-medium text-slate-800">
-          {item.ten_mon_an}
-        </div>
-        <div className="text-xs text-slate-500">
-          {Number(item.gia_ban).toLocaleString("vi-VN")}đ × {item.so_luong}
-        </div>
-      </div>
-      <button
-        onClick={() => onRemove(item._tmp_id)}
-        className="text-slate-400 hover:text-red-500 text-lg leading-none"
+  <div className="bg-white border border-amber-200 rounded-lg px-2 py-1.5">
+    <div className="flex items-center gap-1.5">
+      <div
+        className="flex-1 min-w-0 text-sm font-medium text-slate-800 truncate"
+        title={item.ten_mon_an}
       >
-        &times;
-      </button>
-    </div>
-    <div className="flex items-center gap-2 mt-2">
-      <div className="flex items-center gap-1">
+        {item.ten_mon_an}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong - 1)}
-          className="w-6 h-6 rounded border border-slate-300 text-sm hover:bg-slate-100"
+          className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
         >
           −
         </button>
-        <span className="w-8 text-center text-sm font-medium">
+        <span className="w-5 text-center text-xs font-medium">
           {item.so_luong}
         </span>
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong + 1)}
-          className="w-6 h-6 rounded border border-slate-300 text-sm hover:bg-slate-100"
+          className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
         >
           +
         </button>
       </div>
-      <span className="text-sm font-medium text-slate-800 ml-auto">
+      <span className="w-16 shrink-0 text-right text-xs font-medium text-slate-800">
         {(item.so_luong * Number(item.gia_ban)).toLocaleString("vi-VN")}đ
       </span>
+      <button
+        onClick={() => onRemove(item._tmp_id)}
+        className="shrink-0 text-slate-400 hover:text-red-500 text-base leading-none"
+      >
+        &times;
+      </button>
     </div>
     <input
       type="text"
       placeholder="Ghi chú (VD: ít cay...)"
       value={item.ghi_chu}
       onChange={(e) => onUpdateNote(item._tmp_id, e.target.value)}
-      className="w-full mt-2 border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-400"
+      className="w-full mt-1 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-amber-400"
     />
   </div>
 );
 
-// Dòng món đã gửi bếp (từ DB)
+// Dòng món đã gửi bếp (từ DB) — gọn 1 hàng chính, thêm hàng phụ nếu có ghi chú/NV xác nhận
 const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
   const isCancelled = item.trang_thai === "Da_huy";
   const canEdit = !["Da_hoan_thanh", "Da_huy"].includes(item.trang_thai);
@@ -610,76 +649,72 @@ const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
     cls: "",
     text: item.trang_thai,
   };
+  const hasExtra = item.ghi_chu || item.ten_nv_xac_nhan;
 
   return (
     <div
       className={
-        "border rounded-lg p-2 " +
+        "border rounded-lg px-2 py-1.5 " +
         (isCancelled ? "opacity-50 border-slate-200" : "border-slate-200")
       }
     >
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex-1">
-          <div
-            className={
-              "text-sm font-medium " +
-              (isCancelled ? "line-through text-slate-500" : "text-slate-800")
-            }
-          >
-            {item.ten_mon_an}
-          </div>
-          <div className="text-xs text-slate-500">
-            {Number(item.don_gia_tai_thoi_diem_goi).toLocaleString("vi-VN")}đ
-          </div>
-          {item.ghi_chu && (
-            <div className="text-xs text-slate-400 italic mt-0.5">
-              Ghi chú: {item.ghi_chu}
-            </div>
-          )}
-          {item.ten_nv_xac_nhan && (
-            <div className="text-xs text-slate-400 mt-0.5">
-              NV: {item.ten_nv_xac_nhan}
-            </div>
-          )}
+      <div className="flex items-center gap-1.5">
+        <div
+          className={
+            "flex-1 min-w-0 text-sm font-medium truncate " +
+            (isCancelled ? "line-through text-slate-500" : "text-slate-800")
+          }
+          title={item.ten_mon_an}
+        >
+          {item.ten_mon_an}
         </div>
-        <span className={"text-xs px-1.5 py-0.5 rounded " + status.cls}>
+        <span className={"shrink-0 text-xs px-1.5 py-0.5 rounded " + status.cls}>
           {status.text}
         </span>
-      </div>
-      <div className="flex justify-between items-center mt-2">
+
         {canEdit ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => onUpdateQty(item, -1)}
-              className="w-6 h-6 rounded border border-slate-300 text-sm hover:bg-slate-100"
+              className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
             >
               −
             </button>
-            <span className="w-8 text-center text-sm">{item.so_luong}</span>
+            <span className="w-5 text-center text-xs">{item.so_luong}</span>
             <button
               onClick={() => onUpdateQty(item, +1)}
-              className="w-6 h-6 rounded border border-slate-300 text-sm hover:bg-slate-100"
+              className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
             >
               +
             </button>
           </div>
         ) : (
-          <span className="text-sm text-slate-600">SL: {item.so_luong}</span>
-        )}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-800">
-            {Number(item.thanh_tien).toLocaleString("vi-VN")}đ
+          <span className="shrink-0 text-xs text-slate-600">
+            SL {item.so_luong}
           </span>
-          {canEdit && (
-            <button
-              onClick={() => onCancel(item)}
-              className="text-xs text-red-500 hover:text-red-700"
-            >
-              Hủy
-            </button>
-          )}
-        </div>
+        )}
+
+        <span className="w-16 shrink-0 text-right text-xs font-medium text-slate-800">
+          {Number(item.thanh_tien).toLocaleString("vi-VN")}đ
+        </span>
+
+        {canEdit && (
+          <button
+            onClick={() => onCancel(item)}
+            className="shrink-0 text-xs text-red-500 hover:text-red-700"
+          >
+            Hủy
+          </button>
+        )}
       </div>
+
+      {hasExtra && (
+        <div className="text-xs text-slate-400 italic mt-0.5 truncate">
+          {item.ghi_chu && <>Ghi chú: {item.ghi_chu}</>}
+          {item.ghi_chu && item.ten_nv_xac_nhan && " · "}
+          {item.ten_nv_xac_nhan && <>NV: {item.ten_nv_xac_nhan}</>}
+        </div>
+      )}
     </div>
   );
 };

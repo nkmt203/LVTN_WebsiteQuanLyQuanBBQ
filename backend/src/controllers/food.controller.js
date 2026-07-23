@@ -198,11 +198,35 @@ const updateFoodStatus = async (req, res) => {
       return res.status(400).json({ message: "Trạng thái không hợp lệ" });
     }
 
+    const [mon] = await pool.query(
+      `
+      SELECT d.trang_thai AS trang_thai_danh_muc
+      FROM MON_AN m JOIN DANH_MUC d ON m.ma_danh_muc = d.ma_danh_muc
+      WHERE m.ma_mon_an = ?
+      `,
+      [id],
+    );
+    if (mon.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Món ăn không còn tồn tại trên hệ thống" });
+    }
+
+    if (
+      trang_thai === "Dang_kinh_doanh" &&
+      mon[0].trang_thai_danh_muc === "Ngung_su_dung"
+    ) {
+      return res.status(409).json({
+        message:
+          "Danh mục của món ăn này đang ngừng sử dụng, không thể mở bán lại",
+      });
+    }
+
     if (trang_thai === "Tam_ngung") {
       const [dangCheBien] = await pool.query(
         `
         SELECT COUNT(*) AS soDon FROM CHI_TIET_HOA_DON
-        WHERE ma_mon_an=? 
+        WHERE ma_mon_an=?
         AND trang_thai IN ('Cho_xac_nhan','Dang_che_bien')
         `,
         [id],
@@ -213,15 +237,10 @@ const updateFoodStatus = async (req, res) => {
         });
       }
     }
-    const [result] = await pool.query(
+    await pool.query(
       "UPDATE MON_AN SET trang_thai = ? WHERE ma_mon_an = ?",
       [trang_thai, id],
     );
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ message: "Món ăn không còn tồn tại trên hệ thống" });
-    }
     res.json({ message: "Thay đổi trạng thái món ăn thành công" });
   } catch (err) {
     console.error("Lỗi updateFoodStatus:", err.message);

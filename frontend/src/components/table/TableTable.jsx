@@ -1,7 +1,6 @@
 const STATUS_LABEL = {
   Trong:        { text: 'Trống',        cls: 'bg-emerald-50 text-emerald-700' },
   Dang_su_dung: { text: 'Đang sử dụng', cls: 'bg-blue-50 text-blue-700' },
-  Da_dat_truoc: { text: 'Đã đặt trước', cls: 'bg-amber-50 text-amber-700' },
 };
 
 function TableTable({ tables, onEdit, onDelete }) {

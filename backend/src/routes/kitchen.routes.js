@@ -25,5 +25,4 @@ router.patch(
   c.acknowledgeCancellation,
 );
 
-router.get("/bills/:billId", authorize("Bep", "Admin"), c.getBillDetail);
 module.exports = router;

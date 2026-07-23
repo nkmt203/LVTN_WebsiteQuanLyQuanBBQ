@@ -143,7 +143,7 @@ const createRecipes = async (req, res) => {
     }
 
     //Kiểm tra all nguyên liệu tôn tại hoạt động
-    const [nlArr] = items.map((i) => i.ma_nguyen_lieu);
+    const nlArr = items.map((i) => i.ma_nguyen_lieu);
     const [nlCheck] = await pool.query(
       `
       SELECT ma_nguyen_lieu, ten_nguyen_lieu, trang_thai

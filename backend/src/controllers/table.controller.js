@@ -119,6 +119,15 @@ const createTable = async (req, res) => {
     const kvCheck = await kiemTraKhuVuc(ma_khu_vuc);
     if (!kvCheck.ok) return res.status(400).json({ message: kvCheck.message });
 
+    // 2b. Kiểm tra trùng tên bàn
+    const [trung] = await pool.query(
+      "SELECT ma_ban FROM BAN WHERE ten_ban = ?",
+      [ten_ban.trim()],
+    );
+    if (trung.length > 0) {
+      return res.status(409).json({ message: "Tên bàn đã tồn tại" });
+    }
+
     // 3. Sinh QR duy nhất
     let qr;
     for (let i = 0; i < 5; i++) {
@@ -152,11 +161,12 @@ const createTable = async (req, res) => {
   }
 };
 
-// PUT /api/tables/:id — cập nhật (bao gồm cả trạng thái, chặn nếu đang phục vụ)
+// PUT /api/tables/:id — cập nhật thông tin bàn (không đổi trạng thái tại đây —
+// trạng thái do nghiệp vụ mở/hủy/chuyển bàn của phục vụ quản lý)
 const updateTable = async (req, res) => {
   try {
     const { id } = req.params;
-    const { ten_ban, ma_khu_vuc, so_ghe, ghi_chu, trang_thai } = req.body;
+    const { ten_ban, ma_khu_vuc, so_ghe, ghi_chu } = req.body;
 
     // 1. Validate
     const loi = validateDuLieuBan(req.body);
@@ -166,44 +176,23 @@ const updateTable = async (req, res) => {
     const kvCheck = await kiemTraKhuVuc(ma_khu_vuc);
     if (!kvCheck.ok) return res.status(400).json({ message: kvCheck.message });
 
-    // 3. Lấy bàn hiện tại
-    const [rows] = await pool.query(
-      "SELECT trang_thai FROM BAN WHERE ma_ban = ?",
-      [id],
+    // 2b. Kiểm tra trùng tên bàn (loại trừ chính bàn đang sửa)
+    const [trung] = await pool.query(
+      "SELECT ma_ban FROM BAN WHERE ten_ban = ? AND ma_ban != ?",
+      [ten_ban.trim(), id],
     );
-    if (rows.length === 0)
-      return res.status(404).json({ message: "Không tìm thấy bàn" });
-    const trangThaiHienTai = rows[0].trang_thai;
-
-    // 4. Xử lý trạng thái
-    let trangThaiMoi = trangThaiHienTai;
-    if (trang_thai && trang_thai !== trangThaiHienTai) {
-      const allowed = ["Trong", "Da_dat_truoc"];
-      if (
-        !allowed.includes(trangThaiHienTai) ||
-        !allowed.includes(trang_thai)
-      ) {
-        return res.status(409).json({
-          message:
-            'Chỉ được đổi trạng thái giữa "Trống" và "Đã đặt trước". Bàn đang phục vụ do nhân viên phục vụ quản lý.',
-        });
-      }
-      trangThaiMoi = trang_thai;
+    if (trung.length > 0) {
+      return res.status(409).json({ message: "Tên bàn đã tồn tại" });
     }
 
-    // 5. Update
-    await pool.query(
-      `UPDATE BAN SET ten_ban = ?, ma_khu_vuc = ?, so_ghe = ?, ghi_chu = ?, trang_thai = ?
+    // 3. Update
+    const [result] = await pool.query(
+      `UPDATE BAN SET ten_ban = ?, ma_khu_vuc = ?, so_ghe = ?, ghi_chu = ?
        WHERE ma_ban = ?`,
-      [
-        ten_ban.trim(),
-        ma_khu_vuc,
-        Number(so_ghe),
-        ghi_chu || null,
-        trangThaiMoi,
-        id,
-      ],
+      [ten_ban.trim(), ma_khu_vuc, Number(so_ghe), ghi_chu || null, id],
     );
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "Không tìm thấy bàn" });
 
     res.json({ message: "Cập nhật bàn thành công" });
   } catch (err) {

@@ -119,7 +119,7 @@ function IngredientPage() {
       closeForm();
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -130,7 +130,7 @@ function IngredientPage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -141,7 +141,7 @@ function IngredientPage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 

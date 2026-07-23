@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { getBills, getBillDetail, payBill } from '../../api/cashierApi';
+import { getBills, getBillDetail, payBill, getRevenueSummary } from '../../api/cashierApi';
 import { getErrorMessage } from '../../api/errorHandler';
 import Modal from '../../components/common/Modal';
 
 const POLL_INTERVAL_MS = 5000;
+const today = () => new Date().toISOString().slice(0, 10);
 
 function CashierPage() {
   const [tab, setTab] = useState('Cho_thanh_toan');
@@ -11,6 +12,11 @@ function CashierPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const timerRef = useRef(null);
+
+  // Tra cứu hóa đơn đã thanh toán theo khoảng ngày (tab "Đã thanh toán")
+  const [tuNgay, setTuNgay] = useState(today());
+  const [denNgay, setDenNgay] = useState(today());
+  const [revenueSummary, setRevenueSummary] = useState(null);
 
   // Modal chi tiết bill
   const [detailOpen, setDetailOpen] = useState(false);
@@ -27,8 +33,19 @@ function CashierPage() {
   // ===== LOAD =====
   const loadBills = async (trangThai = tab) => {
     try {
-      const data = await getBills(trangThai);
+      const data =
+        trangThai === 'Da_thanh_toan'
+          ? await getBills(trangThai, tuNgay, denNgay)
+          : await getBills(trangThai);
       setBills(data);
+    } catch (err) {
+      setMessage('❌ ' + getErrorMessage(err));
+    }
+  };
+
+  const loadRevenueSummary = async () => {
+    try {
+      setRevenueSummary(await getRevenueSummary(tuNgay, denNgay));
     } catch (err) {
       setMessage('❌ ' + getErrorMessage(err));
     }
@@ -37,13 +54,22 @@ function CashierPage() {
   useEffect(() => {
     const init = async () => {
       await loadBills(tab);
+      if (tab === 'Da_thanh_toan') await loadRevenueSummary();
       setLoading(false);
     };
     init();
 
-    timerRef.current = setInterval(() => loadBills(tab), POLL_INTERVAL_MS);
-    return () => clearInterval(timerRef.current);
+    // Tab "Đã thanh toán" là lịch sử, không cần tự làm mới liên tục
+    if (tab !== 'Da_thanh_toan') {
+      timerRef.current = setInterval(() => loadBills(tab), POLL_INTERVAL_MS);
+      return () => clearInterval(timerRef.current);
+    }
   }, [tab]);
+
+  const handleSearchHistory = async () => {
+    await loadBills('Da_thanh_toan');
+    await loadRevenueSummary();
+  };
 
   // ===== XEM CHI TIẾT =====
   const handleViewDetail = async (bill) => {
@@ -117,7 +143,46 @@ function CashierPage() {
           label="Đang phục vụ"
           count={tab === 'Dang_phuc_vu' ? bills.length : null}
         />
+        <TabButton
+          active={tab === 'Da_thanh_toan'}
+          onClick={() => setTab('Da_thanh_toan')}
+          label="Đã thanh toán"
+        />
       </div>
+
+      {/* Bộ lọc ngày + tổng doanh thu — chỉ hiện ở tab Đã thanh toán */}
+      {tab === 'Da_thanh_toan' && (
+        <div className="mb-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-3 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Từ ngày</label>
+              <input type="date" value={tuNgay} onChange={(e) => setTuNgay(e.target.value)}
+                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1">Đến ngày</label>
+              <input type="date" value={denNgay} onChange={(e) => setDenNgay(e.target.value)}
+                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm" />
+            </div>
+            <button onClick={handleSearchHistory}
+                    className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-slate-900">
+              Tra cứu
+            </button>
+          </div>
+
+          {revenueSummary && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SummaryBox label="Tổng hóa đơn" value={revenueSummary.tong_so_hoa_don} />
+              <SummaryBox label="Tổng doanh thu"
+                          value={`${revenueSummary.tong_doanh_thu.toLocaleString('vi-VN')}đ`} />
+              <SummaryBox label="Tiền mặt"
+                          value={`${revenueSummary.theo_hinh_thuc.Tien_mat.toLocaleString('vi-VN')}đ`} />
+              <SummaryBox label="Chuyển khoản"
+                          value={`${revenueSummary.theo_hinh_thuc.Chuyen_khoan.toLocaleString('vi-VN')}đ`} />
+            </div>
+          )}
+        </div>
+      )}
 
       {message && (
         <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
@@ -200,6 +265,13 @@ const TabButton = ({ active, onClick, label, count, highlight }) => (
       </span>
     )}
   </button>
+);
+
+const SummaryBox = ({ label, value }) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-4">
+    <div className="text-xs text-slate-500 mb-1">{label}</div>
+    <div className="text-lg font-bold text-slate-800">{value}</div>
+  </div>
 );
 
 const BillCard = ({ bill, onView, onPay }) => {
