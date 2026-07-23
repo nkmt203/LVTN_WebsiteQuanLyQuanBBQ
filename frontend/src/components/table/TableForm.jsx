@@ -3,11 +3,8 @@ const INP = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-
 
 function TableForm({
   editingId, tenBan, setTenBan, maKhuVuc, setMaKhuVuc, soGhe, setSoGhe,
-  ghiChu, setGhiChu, trangThai, setTrangThai, currentStatus, zones, onSave, onCancel,
+  ghiChu, setGhiChu, zones, onSave, onCancel,
 }) {
-  // Chỉ cho đổi trạng thái nếu bàn đang ở Trong hoặc Da_dat_truoc
-  const canEditStatus = editingId !== null && ['Trong', 'Da_dat_truoc'].includes(currentStatus);
-
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -31,25 +28,6 @@ function TableForm({
         <Field label="Ghi chú">
           <input className={INP} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder="Tuỳ chọn" />
         </Field>
-
-        {/* Ô trạng thái chỉ hiện khi Sửa (không hiện khi Thêm) */}
-        {editingId !== null && (
-          <div className="flex flex-col md:col-span-2">
-            <label className={LBL}>Trạng thái</label>
-            <select className={INP} value={trangThai} onChange={(e) => setTrangThai(e.target.value)} disabled={!canEditStatus}>
-              <option value="Trong">Trống</option>
-              <option value="Da_dat_truoc">Đã đặt trước</option>
-              {currentStatus === 'Dang_su_dung' && (
-                <option value="Dang_su_dung">Đang sử dụng</option>
-              )}
-            </select>
-            {!canEditStatus && (
-              <span className="text-xs text-slate-400 mt-1">
-                Bàn đang phục vụ, không thể đổi trạng thái tại đây.
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="flex gap-2 mt-5 justify-end">

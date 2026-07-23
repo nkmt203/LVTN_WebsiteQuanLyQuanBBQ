@@ -107,7 +107,7 @@ function UnitPage() {
       closeForm();
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -118,7 +118,7 @@ function UnitPage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 

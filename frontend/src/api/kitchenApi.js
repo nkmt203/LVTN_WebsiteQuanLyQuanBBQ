@@ -10,5 +10,3 @@ export const acknowledgeCancellation = (id) =>
   axiosClient
     .patch(`/kitchen/orders/${id}/acknowledge-cancel`)
     .then((r) => r.data);
-export const getBillDetail = (billId) =>
-  axiosClient.get(`/kitchen/bills/${billId}`).then((r) => r.data);

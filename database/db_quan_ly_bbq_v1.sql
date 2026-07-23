@@ -250,7 +250,7 @@ CREATE TABLE BAN (
   so_ghe               INT NOT NULL DEFAULT 4,
   qr_code_dinh_danh    VARCHAR(200) NOT NULL,
   phien_token_hien_tai VARCHAR(200) NULL,
-  trang_thai           ENUM('Trong','Dang_su_dung','Da_dat_truoc') NOT NULL DEFAULT 'Trong',
+  trang_thai           ENUM('Trong','Dang_su_dung') NOT NULL DEFAULT 'Trong',
   ghi_chu              VARCHAR(300) NULL,
   ngay_tao             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ngay_cap_nhat        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

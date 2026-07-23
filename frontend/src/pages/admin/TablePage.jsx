@@ -15,8 +15,6 @@ const emptyForm = {
   maKhuVuc: '',
   soGhe: '4',
   ghiChu: '',
-  trangThai: 'Trong',
-  currentStatus: '',
 };
 
 function TablePage() {
@@ -95,8 +93,6 @@ function TablePage() {
       maKhuVuc: String(b.ma_khu_vuc),
       soGhe: String(b.so_ghe),
       ghiChu: b.ghi_chu || '',
-      trangThai: b.trang_thai,
-      currentStatus: b.trang_thai,
     });
     setFormOpen(true);
   };
@@ -114,7 +110,6 @@ function TablePage() {
       so_ghe: Number(form.soGhe),
       ghi_chu: form.ghiChu,
     };
-    if (editingId !== null) payload.trang_thai = form.trangThai;
 
     try {
       const r = editingId === null
@@ -178,8 +173,6 @@ function TablePage() {
           maKhuVuc={form.maKhuVuc}     setMaKhuVuc={(v) => updateForm('maKhuVuc', v)}
           soGhe={form.soGhe}           setSoGhe={(v) => updateForm('soGhe', v)}
           ghiChu={form.ghiChu}         setGhiChu={(v) => updateForm('ghiChu', v)}
-          trangThai={form.trangThai}   setTrangThai={(v) => updateForm('trangThai', v)}
-          currentStatus={form.currentStatus}
           zones={zones}
           onSave={handleSave} onCancel={closeForm}
         />

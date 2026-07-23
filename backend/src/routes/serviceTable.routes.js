@@ -22,4 +22,10 @@ router.post(
   requireProfile,
   c.cancelTable,
 );
+router.post(
+  "/tables/:id/transfer",
+  authorize("Phuc_vu", "Admin"),
+  requireProfile,
+  c.transferTable,
+);
 module.exports = router;

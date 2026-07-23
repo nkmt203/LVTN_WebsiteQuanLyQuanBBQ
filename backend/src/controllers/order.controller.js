@@ -141,7 +141,14 @@ const addOrderItems = async (req, res) => {
       }
     }
 
-    // 5. INSERT từng dòng món, ghi ma_nv_xac_nhan cho TỪNG DÒNG (nghiệp vụ)
+    // 5. Luôn tạo DÒNG MỚI cho từng món trong đợt gửi này, ghi ma_nv_xac_nhan cho dòng đó
+    // (nghiệp vụ 2.3.1.11.c Trường hợp 3): kể cả khi món này đã có 1 dòng khác
+    // đang "Đang chế biến" trong cùng hóa đơn, KHÔNG cộng dồn vào dòng cũ — mỗi
+    // đợt gửi bếp là 1 vé riêng biệt, tránh sai sót khi vận hành (bếp có thể
+    // nhầm lẫn số lượng/thời điểm nếu 2 đợt gọi món bị gộp chung 1 dòng).
+    // Toàn bộ món trong CÙNG 1 đợt gửi này dùng chung 1 mốc thời gian
+    // (thay vì NOW() riêng từng dòng) để FE bếp gom được thành 1 "vé" duy nhất.
+    const thoiGianDotGui = new Date();
     const insertedItems = [];
     for (const item of items) {
       const mon = monMap[item.ma_mon_an];
@@ -155,7 +162,7 @@ const addOrderItems = async (req, res) => {
             (ma_hoa_don,ma_mon_an, so_luong, don_gia_tai_thoi_diem_goi, thanh_tien,
             ghi_chu, trang_thai, ma_nv_xac_nhan,
             thoi_gian_goi_mon, thoi_gian_xac_nhan,nguon_goi_mon)
-            VALUES (?,?,?,?,?,?,'Dang_che_bien',?, NOW(),NOW(),'Nhan_vien')
+            VALUES (?,?,?,?,?,?,'Dang_che_bien',?, ?,NOW(),'Nhan_vien')
             `,
         [
           ma_hoa_don,
@@ -165,6 +172,7 @@ const addOrderItems = async (req, res) => {
           thanhTien,
           item.ghi_chu || null,
           ma_nhan_vien,
+          thoiGianDotGui,
         ],
       );
       insertedItems.push({
@@ -423,4 +431,5 @@ module.exports = {
   updateOrderItem,
   cancelOrderItem,
   requestPayment,
+  updateBillTotal,
 };

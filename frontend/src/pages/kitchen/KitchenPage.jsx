@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { getPendingOrders, completeOrderItem, acknowledgeCancellation, getBillDetail } from '../../api/kitchenApi';
+import { getPendingOrders, completeOrderItem, acknowledgeCancellation } from '../../api/kitchenApi';
 import { getErrorMessage } from '../../api/errorHandler';
-import Modal from '../../components/common/Modal';
 
 const POLL_INTERVAL_MS = 5000; // Auto refresh 5 giây
 
@@ -11,10 +10,6 @@ function KitchenPage() {
   const [message, setMessage] = useState('');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const timerRef = useRef(null);
-  const [showCancelPanel, setShowCancelPanel] = useState(false);
-  // Modal xem chi tiết bill
-  const [billDetail, setBillDetail] = useState(null);
-  const [billModalOpen, setBillModalOpen] = useState(false);
 
   // ===== LOAD =====
   const loadOrders = async () => {
@@ -70,17 +65,6 @@ function KitchenPage() {
     }
   };
 
-  // ===== XEM CHI TIẾT BILL =====
-  const handleViewBill = async (billId) => {
-    try {
-      const data = await getBillDetail(billId);
-      setBillDetail(data);
-      setBillModalOpen(true);
-    } catch (err) {
-      setMessage('❌ ' + getErrorMessage(err));
-    }
-  };
-
   // ===== NHÓM ORDER THEO BÀN =====
   // Do BE đã ORDER BY thời điểm gọi món sớm nhất của hóa đơn (FIFO),
   // ta chỉ cần push theo thứ tự đến, các bàn tự động xếp đúng thứ tự
@@ -105,22 +89,11 @@ function KitchenPage() {
     item.trang_thai === 'Da_hoan_thanh' ||
     (item.trang_thai === 'Da_huy' && item.ghi_chu?.includes('[BEP_OK]'));
 
-  // Món hủy đã được bếp xác nhận (tiếp nhận)
-  const isCancelledAck = (item) =>
-    item.trang_thai === 'Da_huy' && item.ghi_chu?.includes('[BEP_OK]');
-
   // Đếm chỉ món chưa hoàn thành / chưa được bếp tiếp nhận hủy để hiện tổng ở header
   const activeItems = orders.filter((i) => !isItemFinal(i));
   // Bill còn món cần xử lý (chưa hoàn thành hoặc còn yêu cầu hủy chưa tiếp nhận)
   // -> bill đã xong hết món (mọi món đều hoàn thành/hủy đã tiếp nhận) sẽ tự ẩn khỏi lưới chính
   const activeTables = tables.filter((t) => t.items.some((i) => !isItemFinal(i)));
-
-  // Bill "đã nhận" (cho panel xem lại) chỉ tính khi TOÀN BỘ món trong bill đã xong
-  // (hoàn thành hoặc hủy đã tiếp nhận) — tức là các bill đã ẩn khỏi lưới chính
-  const finishedTables = tables.filter((t) => t.items.every(isItemFinal));
-
-  // Danh sách toàn bộ món đã được bếp xác nhận hủy (dùng cho panel xem lại)
-  const allCancelledAck = orders.filter(isCancelledAck);
 
   if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
 
@@ -131,17 +104,7 @@ function KitchenPage() {
         totalItems={activeItems.length}
         lastRefresh={lastRefresh}
         onRefresh={loadOrders}
-        showCancelPanel={showCancelPanel}
-        onToggleCancelPanel={() => setShowCancelPanel((v) => !v)}
       />
-
-      {showCancelPanel && (
-        <ReviewPanel
-          tables={finishedTables}
-          cancelledItems={allCancelledAck}
-          onViewBill={handleViewBill}
-        />
-      )}
 
       {message && (
         <div
@@ -172,20 +135,10 @@ function KitchenPage() {
               table={t}
               onComplete={handleComplete}
               onAckCancel={handleAcknowledgeCancel}
-              onViewBill={handleViewBill}
             />
           ))}
         </div>
       )}
-
-      {/* Modal xem toàn bộ bill */}
-      <Modal
-        open={billModalOpen}
-        onClose={() => setBillModalOpen(false)}
-        title={billDetail ? `Bill ${billDetail.hoaDon.ten_ban} #${billDetail.hoaDon.ma_hoa_don}` : 'Chi tiết bill'}
-      >
-        {billDetail && <BillDetailContent bill={billDetail} />}
-      </Modal>
     </div>
   );
 }
@@ -194,14 +147,7 @@ function KitchenPage() {
 // SUB-COMPONENTS
 // ============================================================
 
-const KitchenHeader = ({
-  totalTables,
-  totalItems,
-  lastRefresh,
-  onRefresh,
-  showCancelPanel,
-  onToggleCancelPanel,
-}) => (
+const KitchenHeader = ({ totalTables, totalItems, lastRefresh, onRefresh }) => (
   <div className="flex items-center justify-between mb-5">
     <div>
       <h2 className="text-xl font-bold text-slate-800">Đơn chờ chế biến</h2>
@@ -214,12 +160,6 @@ const KitchenHeader = ({
         Cập nhật lúc: {lastRefresh.toLocaleTimeString('vi-VN')}
       </span>
       <button
-        onClick={onToggleCancelPanel}
-        className="text-sm text-slate-600 border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-lg bg-white"
-      >
-        📜 Xem lại {showCancelPanel ? '▲' : '▼'}
-      </button>
-      <button
         onClick={onRefresh}
         className="text-sm text-orange-600 border border-orange-300 hover:bg-orange-50 px-3 py-1.5 rounded-lg bg-white"
       >
@@ -229,109 +169,27 @@ const KitchenHeader = ({
   </div>
 );
 
-// Panel xem lại: toàn bộ bill bếp đã nhận + danh sách món đã xác nhận hủy
-const ReviewPanel = ({ tables, cancelledItems, onViewBill }) => (
-  <div className="mb-4 bg-white border border-slate-200 rounded-xl p-4 space-y-5 shadow-sm">
-    <div>
-      <h3 className="text-sm font-bold text-slate-800 mb-2">
-        📋 Tất cả bill đã nhận ({tables.length})
-      </h3>
-      {tables.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có bill nào.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="px-2 py-1.5 text-left">Bàn</th>
-                <th className="px-2 py-1.5 text-left">Khu vực</th>
-                <th className="px-2 py-1.5 text-center">Tổng món</th>
-                <th className="px-2 py-1.5 text-center">Hoàn thành</th>
-                <th className="px-2 py-1.5 text-center">Đã hủy</th>
-                <th className="px-2 py-1.5 text-center w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tables.map((t) => {
-                const done = t.items.filter((i) => i.trang_thai === 'Da_hoan_thanh').length;
-                const cancelled = t.items.filter((i) => i.trang_thai === 'Da_huy').length;
-                return (
-                  <tr key={t.ma_hoa_don} className="border-t border-slate-100">
-                    <td className="px-2 py-1.5 text-slate-800 font-medium">{t.ten_ban}</td>
-                    <td className="px-2 py-1.5 text-slate-500">{t.ten_khu_vuc}</td>
-                    <td className="px-2 py-1.5 text-center text-slate-600">{t.items.length}</td>
-                    <td className="px-2 py-1.5 text-center text-emerald-600">{done}</td>
-                    <td className="px-2 py-1.5 text-center text-red-600">{cancelled}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      <button
-                        onClick={() => onViewBill(t.ma_hoa_don)}
-                        className="text-xs text-slate-600 border border-slate-300 hover:bg-slate-100 px-2 py-0.5 rounded"
-                      >
-                        📋 Chi tiết
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+// Nhóm các món trong 1 bill theo đợt gửi bếp (cùng thoi_gian_goi_mon = cùng 1 lần
+// bấm "Xác nhận gửi bếp" của phục vụ) -> mỗi đợt hiện thành 1 "vé" riêng biệt,
+// chỉ chung bàn/số bill với các đợt khác.
+const groupByBatch = (items) => {
+  const map = new Map();
+  for (const item of items) {
+    const key = item.thoi_gian_goi_mon;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  }
+  return [...map.entries()]
+    .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+    .map(([time, list]) => ({ time, items: list }));
+};
 
-    <div>
-      <h3 className="text-sm font-bold text-slate-800 mb-2">
-        🚫 Danh sách món đã xác nhận hủy ({cancelledItems.length})
-      </h3>
-      {cancelledItems.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có món nào được xác nhận hủy.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-slate-500 text-xs uppercase">
-              <tr>
-                <th className="px-2 py-1.5 text-left">Bàn</th>
-                <th className="px-2 py-1.5 text-center w-10">SL</th>
-                <th className="px-2 py-1.5 text-left">Món</th>
-                <th className="px-2 py-1.5 text-left">Lý do hủy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cancelledItems.map((item) => {
-                const cleanGhiChu = item.ghi_chu?.replace(/\s*\[BEP_OK\]\s*/, '');
-                const lyDoHuy = cleanGhiChu?.match(/\[Lý do hủy: (.+?)\]/)?.[1];
-                return (
-                  <tr key={item.ma_chi_tiet_hd} className="border-t border-slate-100">
-                    <td className="px-2 py-1.5 text-slate-800 font-medium">{item.ten_ban}</td>
-                    <td className="px-2 py-1.5 text-center text-red-600 font-medium">
-                      {item.so_luong}
-                    </td>
-                    <td className="px-2 py-1.5 text-slate-600">{item.ten_mon_an}</td>
-                    <td className="px-2 py-1.5 text-xs text-red-500 italic">
-                      {lyDoHuy || '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-const TableOrderCard = ({ table, onComplete, onAckCancel, onViewBill }) => {
-  const [showHistory, setShowHistory] = useState(false);
-
-  // Phân loại items
-  const cancelledAck = table.items.filter((i) =>
-    i.trang_thai === 'Da_huy' && i.ghi_chu?.includes('[BEP_OK]')
-  );
-  // Bill chính = tất cả trừ món hủy đã tiếp nhận (đã chuyển sang lịch sử)
+const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
+  // Bill chính = tất cả trừ món hủy đã tiếp nhận (đã xử lý xong, không cần hiện nữa)
   const mainItems = table.items.filter((i) =>
     !(i.trang_thai === 'Da_huy' && i.ghi_chu?.includes('[BEP_OK]'))
   );
+  const batches = groupByBatch(mainItems);
 
   const pendingCount = table.items.filter((i) =>
     !['Da_hoan_thanh', 'Da_huy'].includes(i.trang_thai)
@@ -365,66 +223,42 @@ const TableOrderCard = ({ table, onComplete, onAckCancel, onViewBill }) => {
               {doneCount}
             </span>
           )}
-          <button
-            onClick={() => onViewBill(table.ma_hoa_don)}
-            className="text-xs text-slate-600 border border-slate-300 hover:bg-slate-100 px-2 py-0.5 rounded ml-1"
-            title="Xem toàn bộ bill"
-          >
-            📋
-          </button>
         </div>
       </div>
 
-      {/* Bill chính */}
-      {mainItems.length > 0 && (
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-            <tr>
-              <th className="px-2 py-1.5 text-center w-10">SL</th>
-              <th className="px-2 py-1.5 text-left">Món</th>
-              <th className="px-2 py-1.5 text-left">Ghi chú</th>
-              <th className="px-2 py-1.5 text-center w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {mainItems.map((item) => (
-              <OrderItemRow
-                key={item.ma_chi_tiet_hd}
-                item={item}
-                onComplete={onComplete}
-                onAckCancel={onAckCancel}
-              />
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Toggle Lịch sử hủy */}
-      {cancelledAck.length > 0 && (
-        <div className="border-t border-slate-200">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-full px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 flex items-center justify-between"
-          >
-            <span>
-              {showHistory ? '▲' : '▼'} Lịch sử hủy ({cancelledAck.length})
-            </span>
-            <span className="text-slate-400">
-              {cancelledAck.length} món
-            </span>
-          </button>
-
-          {showHistory && (
-            <table className="w-full text-sm bg-slate-50">
-              <tbody>
-                {cancelledAck.map((item) => (
-                  <CancelledHistoryRow key={item.ma_chi_tiet_hd} item={item} />
-                ))}
-              </tbody>
-            </table>
+      {/* Bill chính — mỗi đợt gửi bếp hiện thành 1 "vé" riêng, phân cách bằng đường đứt nét */}
+      {batches.map((batch, idx) => (
+        <div
+          key={batch.time}
+          className={idx > 0 ? 'border-t-2 border-dashed border-orange-200' : ''}
+        >
+          {batches.length > 1 && (
+            <div className="px-3 py-1 bg-orange-50 text-xs font-semibold text-orange-700 flex items-center gap-1">
+              🎫 Đợt {idx + 1} · {new Date(batch.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </div>
           )}
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+              <tr>
+                <th className="px-2 py-1.5 text-center w-10">SL</th>
+                <th className="px-2 py-1.5 text-left">Món</th>
+                <th className="px-2 py-1.5 text-left">Ghi chú</th>
+                <th className="px-2 py-1.5 text-center w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {batch.items.map((item) => (
+                <OrderItemRow
+                  key={item.ma_chi_tiet_hd}
+                  item={item}
+                  onComplete={onComplete}
+                  onAckCancel={onAckCancel}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      ))}
     </div>
   );
 };
@@ -438,7 +272,7 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
   const lyDoHuy = isCancelled ? cleanGhiChu?.match(/\[Lý do hủy: (.+?)\]/)?.[1] : null;
   const ghiChuHienThi = cleanGhiChu?.replace(/\s*\[Lý do hủy: .+?\]\s*/, '').trim();
 
-  // ===== MÓN BỊ HỦY - CHƯA TIẾP NHẬN (đã tiếp nhận sẽ chuyển vào lịch sử) =====
+  // ===== MÓN BỊ HỦY - CHƯA TIẾP NHẬN (đã tiếp nhận sẽ ẩn khỏi danh sách) =====
   if (isCancelled) {
     return (
       <tr className="border-t border-red-100 bg-red-50 animate-pulse">
@@ -513,128 +347,6 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
         >
           ✓
         </button>
-      </td>
-    </tr>
-  );
-};
-
-// Modal xem toàn bộ bill (khi bếp bấm 📋)
-const BillDetailContent = ({ bill }) => {
-  const totalItems = bill.items.length;
-  const doneItems = bill.items.filter((i) => i.trang_thai === 'Da_hoan_thanh').length;
-  const cancelledItems = bill.items.filter((i) => i.trang_thai === 'Da_huy').length;
-
-  const STATUS_STYLE = {
-    Cho_xac_nhan:  'bg-amber-100 text-amber-700',
-    Dang_che_bien: 'bg-blue-100 text-blue-700',
-    Da_hoan_thanh: 'bg-emerald-100 text-emerald-700',
-    Da_huy:        'bg-red-100 text-red-700',
-  };
-  const STATUS_TEXT = {
-    Cho_xac_nhan:  'Chờ xác nhận',
-    Dang_che_bien: 'Đang chế biến',
-    Da_hoan_thanh: 'Hoàn thành',
-    Da_huy:        'Đã hủy',
-  };
-
-  return (
-    <div>
-      <div className="mb-4 text-sm text-slate-600 grid grid-cols-2 gap-2">
-        <div>
-          <span className="text-slate-400">Khu vực:</span>{' '}
-          <span className="font-medium">{bill.hoaDon.ten_khu_vuc}</span>
-        </div>
-        <div>
-          <span className="text-slate-400">Mở bàn:</span>{' '}
-          <span className="font-medium">
-            {new Date(bill.hoaDon.thoi_gian_mo_ban).toLocaleString('vi-VN')}
-          </span>
-        </div>
-        <div>
-          <span className="text-slate-400">Tổng món:</span>{' '}
-          <span className="font-medium">{totalItems}</span>
-        </div>
-        <div>
-          <span className="text-slate-400">Hoàn thành:</span>{' '}
-          <span className="font-medium text-emerald-600">{doneItems}</span>
-          {cancelledItems > 0 && (
-            <> · <span className="text-red-600">Hủy: {cancelledItems}</span></>
-          )}
-        </div>
-      </div>
-
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
-            <tr>
-              <th className="px-2 py-1.5 text-center w-10">SL</th>
-              <th className="px-2 py-1.5 text-left">Món</th>
-              <th className="px-2 py-1.5 text-left">Ghi chú</th>
-              <th className="px-2 py-1.5 text-center">Nguồn</th>
-              <th className="px-2 py-1.5 text-center">Trạng thái</th>
-              <th className="px-2 py-1.5 text-left">NV gọi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bill.items.map((item) => {
-              const cleanGhiChu = item.ghi_chu?.replace(/\s*\[BEP_OK\]\s*/, '');
-              const lyDoHuy = item.trang_thai === 'Da_huy'
-                ? cleanGhiChu?.match(/\[Lý do hủy: (.+?)\]/)?.[1]
-                : null;
-              const ghiChu = cleanGhiChu?.replace(/\s*\[Lý do hủy: .+?\]\s*/, '').trim();
-              const isCancelled = item.trang_thai === 'Da_huy';
-
-              return (
-                <tr
-                  key={item.ma_chi_tiet_hd}
-                  className={'border-t border-slate-100 ' + (isCancelled ? 'opacity-60' : '')}
-                >
-                  <td className="px-2 py-2 text-center font-medium">{item.so_luong}</td>
-                  <td className={'px-2 py-2 ' + (isCancelled ? 'line-through text-slate-500' : '')}>
-                    {item.ten_mon_an}
-                  </td>
-                  <td className="px-2 py-2 text-xs text-slate-500 italic">
-                    {isCancelled && lyDoHuy ? `Hủy: ${lyDoHuy}` : (ghiChu || '—')}
-                  </td>
-                  <td className="px-2 py-2 text-center text-xs">
-                    {item.nguon_goi_mon === 'QR' ? '📱 QR' : '👤 NV'}
-                  </td>
-                  <td className="px-2 py-2 text-center">
-                    <span className={'text-xs px-2 py-0.5 rounded-full ' + STATUS_STYLE[item.trang_thai]}>
-                      {STATUS_TEXT[item.trang_thai]}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-xs text-slate-600">
-                    {item.ten_nv_goi || '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
-// Dòng lịch sử món hủy đã được bếp tiếp nhận
-const CancelledHistoryRow = ({ item }) => {
-  const cleanGhiChu = item.ghi_chu?.replace(/\s*\[BEP_OK\]\s*/, '');
-  const lyDoHuy = cleanGhiChu?.match(/\[Lý do hủy: (.+?)\]/)?.[1];
-
-  return (
-    <tr className="border-t border-slate-200 opacity-70">
-      <td className="px-2 py-1.5 text-center text-red-400 text-xs font-medium line-through w-10">
-        {item.so_luong}
-      </td>
-      <td className="px-2 py-1.5 text-xs text-slate-400 line-through decoration-red-300">
-        {item.ten_mon_an}
-      </td>
-      <td className="px-2 py-1.5 text-xs text-red-400 italic">
-        {lyDoHuy || '—'}
-      </td>
-      <td className="px-2 py-1.5 text-center text-red-400 text-xs w-12">
-        ✗
       </td>
     </tr>
   );

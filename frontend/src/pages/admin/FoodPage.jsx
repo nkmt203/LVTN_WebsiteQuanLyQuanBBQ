@@ -147,7 +147,7 @@ function FoodPage() {
       closeForm();
       await loadFoods();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -160,7 +160,7 @@ function FoodPage() {
       setMessage("✅ " + r.message);
       await loadFoods();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -172,7 +172,7 @@ function FoodPage() {
       setMessage("✅ " + r.message);
       await loadFoods();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 

@@ -107,7 +107,7 @@ function RecipePage() {
       setAddOpen(false);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -131,7 +131,7 @@ function RecipePage() {
       setEditOpen(false);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -143,7 +143,7 @@ function RecipePage() {
       setMessage("✅ " + res.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 
@@ -155,7 +155,7 @@ function RecipePage() {
       setMessage("✅ " + r.message);
       await loadData();
     } catch (err) {
-      setMessage("❌ " + err.message);
+      setMessage("❌ " + getErrorMessage(err));
     }
   }
 

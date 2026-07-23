@@ -16,7 +16,7 @@ function IngredientTable({ ingredients, onEdit, onDelete, onToggleStatus }) {
         </thead>
         <tbody>
           {ingredients.length === 0 && (
-            <tr><td className={td + ' text-center text-slate-400'} colSpan={5}>Không tìm thấy dữ liệu.</td></tr>
+            <tr><td className={td + ' text-center text-slate-400'} colSpan={5}>Không tìm thấy nguyên liệu nào phù hợp với từ khóa.</td></tr>
           )}
           {ingredients.map((nl) => {
             const active = nl.trang_thai === 'Hoat_dong';
