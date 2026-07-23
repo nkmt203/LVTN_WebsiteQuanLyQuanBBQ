@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getBills, getBillDetail, getRevenueSummary } from "../../api/cashierApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import Modal from "../../components/common/Modal";
 
 const today = () => new Date().toISOString().slice(0, 10);
+const POLL_INTERVAL_MS = 5000; // Tự làm mới doanh thu vì Thu ngân có thể vừa thanh toán hóa đơn mới
 
 function RevenuePage() {
   const [tuNgay, setTuNgay] = useState(today());
@@ -35,6 +36,15 @@ function RevenuePage() {
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tự động làm mới định kỳ (không đổi cách tra cứu thủ công ở trên,
+  // chỉ âm thầm gọi lại loadData với khoảng ngày đang chọn hiện tại)
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+  useEffect(() => {
+    const timer = setInterval(() => loadDataRef.current(), POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, []);
 
   const handleSearch = async () => {

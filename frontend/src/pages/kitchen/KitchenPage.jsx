@@ -1,8 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
+import { io as ioClient } from 'socket.io-client';
 import { getPendingOrders, completeOrderItem, acknowledgeCancellation } from '../../api/kitchenApi';
 import { getErrorMessage } from '../../api/errorHandler';
+import { SERVER_URL } from '../../api/apiConfig';
 
-const POLL_INTERVAL_MS = 5000; // Auto refresh 5 giây
+const POLL_INTERVAL_MS = 5000; // Auto refresh 5 giây (dự phòng, phòng khi socket mất kết nối)
+
+// Các sự kiện realtime liên quan tới bếp — bắn từ addOrderItems/updateOrderItem/
+// cancelOrderItem (order.controller.js) và transferTable (serviceTable.controller.js)
+const KITCHEN_EVENTS = [
+  'kitchen:new-batch',
+  'kitchen:update-qty',
+  'kitchen:cancel-item',
+  'kitchen:table-transfer',
+];
 
 function KitchenPage() {
   const [orders, setOrders] = useState([]);
@@ -31,6 +42,13 @@ function KitchenPage() {
 
     timerRef.current = setInterval(loadOrders, POLL_INTERVAL_MS);
     return () => clearInterval(timerRef.current);
+  }, []);
+
+  // ===== SOCKET.IO: tải lại ngay khi bếp có đơn/thay đổi mới, không cần chờ poll =====
+  useEffect(() => {
+    const socket = ioClient(SERVER_URL);
+    KITCHEN_EVENTS.forEach((ev) => socket.on(ev, loadOrders));
+    return () => socket.disconnect();
   }, []);
 
   // ===== HOÀN THÀNH MÓN (kèm cảnh báo trừ kho) =====

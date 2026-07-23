@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   getInventory,
   updateMinStock,
@@ -24,6 +24,7 @@ import Modal from "../../components/common/Modal";
 import { getErrorMessage } from "../../api/errorHandler";
 
 const PER_PAGE = 10;
+const POLL_INTERVAL_MS = 5000; // Tồn kho bị bếp trừ tự động nên cần tự làm mới định kỳ
 const TABS = [
   { key: "inventory", label: "Tồn kho" },
   { key: "imports", label: "Phiếu nhập" },
@@ -139,6 +140,16 @@ function WarehousePage() {
     }
     init();
   }, []);
+
+  // Tự động làm mới tab "Tồn kho" định kỳ (chỉ khi đang xem tab này và
+  // không có modal sửa mức tồn tối thiểu đang mở, tránh ghi đè lúc đang sửa)
+  const loadInventoryRef = useRef(loadInventory);
+  loadInventoryRef.current = loadInventory;
+  useEffect(() => {
+    if (tab !== "inventory" || minStockOpen) return;
+    const timer = setInterval(() => loadInventoryRef.current(), POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [tab, minStockOpen]);
 
   // ===== TỒN KHO: đặt mức tối thiểu =====
   function openMinStock(nl) {
