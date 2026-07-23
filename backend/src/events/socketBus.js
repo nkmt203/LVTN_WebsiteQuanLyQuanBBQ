@@ -1,9 +1,13 @@
-// Event bus - chưa có Socket, chỉ log
-// Sau này thêm Socket.io chỉ cần sửa file này
+// Event bus - forward sang Socket.io khi đã init(), trước đó chỉ log (fallback an toàn)
+let io = null;
+
 const bus = {
+  init: (ioInstance) => {
+    io = ioInstance;
+  },
   emit: (event, payload) => {
     console.log(`[BUS] ${event}`, JSON.stringify(payload));
-    // TODO Socket: io.to('...').emit(event, payload);
+    if (io) io.emit(event, payload);
   },
 };
 
