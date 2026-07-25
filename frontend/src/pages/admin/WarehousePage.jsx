@@ -21,6 +21,7 @@ import ExportReceiptForm from "../../components/warehouse/ExportReceiptForm";
 import ExportReceiptDetail from "../../components/warehouse/ExportReceiptDetail";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { getErrorMessage } from "../../api/errorHandler";
 
 const PER_PAGE = 10;
@@ -50,6 +51,7 @@ function WarehousePage() {
   const [minStockOpen, setMinStockOpen] = useState(false);
   const [minStockTarget, setMinStockTarget] = useState(null);
   const [minStockValue, setMinStockValue] = useState("");
+  const [confirmMinStockOpen, setConfirmMinStockOpen] = useState(false);
 
   // ===== TAB: PHIẾU NHẬP =====
   const [imports, setImports] = useState([]);
@@ -157,15 +159,15 @@ function WarehousePage() {
     setMinStockValue(String(nl.muc_ton_toi_thieu));
     setMinStockOpen(true);
   }
-  async function handleSaveMinStock() {
-    try {
-      const r = await updateMinStock(minStockTarget.ma_nguyen_lieu, Number(minStockValue));
-      setMessage("✅ " + r.message);
-      setMinStockOpen(false);
-      await Promise.all([loadInventory(), loadInventoryAll()]);
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  function requestSaveMinStock() {
+    setConfirmMinStockOpen(true);
+  }
+  async function confirmSaveMinStock() {
+    const r = await updateMinStock(minStockTarget.ma_nguyen_lieu, Number(minStockValue));
+    setMessage("✅ " + r.message);
+    setConfirmMinStockOpen(false);
+    setMinStockOpen(false);
+    await Promise.all([loadInventory(), loadInventoryAll()]);
   }
 
   // ===== PHIẾU NHẬP =====
@@ -218,38 +220,47 @@ function WarehousePage() {
     }
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Kho</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h2 className="text-xl font-bold text-stone-800">Quản lý Kho</h2>
+          <p className="text-sm text-stone-500 mt-0.5">
             Tồn kho được cập nhật đồng bộ với luồng bếp tự động trừ khi hoàn thành món.
           </p>
         </div>
         {tab === "imports" && (
           <button onClick={() => setImpAddOpen(true)}
-                  className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900">
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
             + Lập phiếu nhập
           </button>
         )}
         {tab === "exports" && (
           <button onClick={() => setExpAddOpen(true)}
-                  className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900">
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
             + Lập phiếu xuất
           </button>
         )}
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 border-b border-slate-200">
+      <div className="flex gap-2 mb-4 border-b border-stone-200">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -257,8 +268,8 @@ function WarehousePage() {
             className={
               "px-4 py-2 text-sm font-medium border-b-2 -mb-px " +
               (tab === t.key
-                ? "border-slate-800 text-slate-800"
-                : "border-transparent text-slate-500 hover:text-slate-700")
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-stone-500 hover:text-stone-700")
             }
           >
             {t.label}
@@ -310,7 +321,7 @@ function WarehousePage() {
             tonHienTai={Number(minStockTarget.so_luong_ton)}
             mucTonToiThieu={minStockValue}
             setMucTonToiThieu={setMinStockValue}
-            onSave={handleSaveMinStock}
+            onSave={requestSaveMinStock}
             onCancel={() => setMinStockOpen(false)}
           />
         )}
@@ -346,6 +357,18 @@ function WarehousePage() {
              title={expDetail ? `Phiếu xuất #${expDetail.phieuXuat.ma_phieu_xuat}` : "Chi tiết phiếu xuất"}>
         <ExportReceiptDetail detail={expDetail} />
       </Modal>
+
+      <ConfirmDialog
+        open={confirmMinStockOpen}
+        title="Cập nhật mức tồn tối thiểu"
+        description={
+          minStockTarget &&
+          `Xác nhận đặt mức tồn tối thiểu của "${minStockTarget.ten_nguyen_lieu}" thành ${minStockValue}?`
+        }
+        confirmText="Cập nhật"
+        onConfirm={confirmSaveMinStock}
+        onClose={() => setConfirmMinStockOpen(false)}
+      />
     </div>
   );
 }

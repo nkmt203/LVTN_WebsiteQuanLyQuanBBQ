@@ -109,7 +109,7 @@ function SelectProfilePage() {
             </div>
             <div>
               <div className="text-sm font-semibold text-stone-800">
-                Lửa Hồng BBQ
+                MeatOSync
               </div>
               <div className="text-xs text-stone-400">
                 Vai trò thiết bị: {roleLabel[user?.ten_vai_tro] || user?.ten_vai_tro}

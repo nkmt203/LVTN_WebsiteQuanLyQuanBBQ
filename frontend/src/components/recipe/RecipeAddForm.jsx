@@ -6,7 +6,7 @@ function RecipeAddForm({ foods, ingredients, onSave, onCancel }) {
   const [maMonAn, setMaMonAn] = useState('');
   const [rows, setRows] = useState([emptyRow()]);
 
-  const inp = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 w-full';
+  const inp = 'border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 w-full';
 
   function addRow() { setRows([...rows, emptyRow()]); }
 
@@ -37,7 +37,7 @@ function RecipeAddForm({ foods, ingredients, onSave, onCancel }) {
   return (
     <div>
       <div className="mb-4">
-        <label className="text-sm font-medium text-slate-600 mb-1 block">Chọn món ăn *</label>
+        <label className="text-sm font-medium text-stone-600 mb-1 block">Chọn món ăn *</label>
         <select className={inp} value={maMonAn} onChange={(e) => setMaMonAn(e.target.value)}>
           <option value="">-- Chọn món ăn --</option>
           {foods.map((f) => (
@@ -46,11 +46,11 @@ function RecipeAddForm({ foods, ingredients, onSave, onCancel }) {
         </select>
       </div>
 
-      <label className="text-sm font-medium text-slate-600 mb-2 block">Danh sách nguyên liệu</label>
+      <label className="text-sm font-medium text-stone-600 mb-2 block">Danh sách nguyên liệu</label>
 
       <div className="flex flex-col gap-3">
         {rows.map((row, idx) => (
-          <div key={row._key} className="flex gap-2 items-start p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div key={row._key} className="flex gap-2 items-start p-3 bg-stone-50 rounded-lg border border-stone-200">
             <div className="flex-1">
               <select className={inp} value={row.ma_nguyen_lieu}
                       onChange={(e) => updateRow(idx, 'ma_nguyen_lieu', e.target.value)}>
@@ -66,7 +66,7 @@ function RecipeAddForm({ foods, ingredients, onSave, onCancel }) {
               <input type="number" className={inp} placeholder="SL" value={row.so_luong_su_dung}
                      onChange={(e) => updateRow(idx, 'so_luong_su_dung', e.target.value)} />
             </div>
-            <div className="w-16 flex items-center justify-center text-sm text-slate-500 pt-2">
+            <div className="w-16 flex items-center justify-center text-sm text-stone-500 pt-2">
               {getDVT(row.ma_nguyen_lieu) || '—'}
             </div>
             <div className="flex-1">
@@ -81,13 +81,13 @@ function RecipeAddForm({ foods, ingredients, onSave, onCancel }) {
       </div>
 
       <button onClick={addRow}
-              className="mt-3 text-sm text-slate-600 hover:text-slate-900 border border-dashed border-slate-300 rounded-lg px-4 py-2 w-full hover:bg-slate-50">
+              className="mt-3 text-sm text-stone-600 hover:text-stone-900 border border-dashed border-stone-300 rounded-lg px-4 py-2 w-full hover:bg-stone-50">
         + Thêm nguyên liệu
       </button>
 
-      <div className="flex gap-2 mt-5 justify-end">
-        <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">Huỷ</button>
-        <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm hover:bg-slate-900">
+      <div className="flex gap-2 mt-6 justify-end border-t border-stone-100 pt-4">
+        <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-600 hover:bg-stone-50">Huỷ</button>
+        <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
           Lưu định mức
         </button>
       </div>

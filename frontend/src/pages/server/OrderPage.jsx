@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io as ioClient } from "socket.io-client";
+import { ArrowLeft } from "lucide-react";
 import {
   getBillByTable,
   submitOrderBatch,
@@ -16,6 +17,7 @@ import { getAllCategories } from "../../api/categoryApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import TransferTargetPicker from "../../components/table/TransferTargetPicker";
 
 const POLL_INTERVAL_MS = 5000;
@@ -24,7 +26,7 @@ const ITEM_STATUS = {
   Cho_xac_nhan: { cls: "bg-amber-50 text-amber-700", text: "Chờ xác nhận" },
   Dang_che_bien: { cls: "bg-blue-50 text-blue-700", text: "Đang chế biến" },
   Da_hoan_thanh: { cls: "bg-emerald-50 text-emerald-700", text: "Hoàn thành" },
-  Da_huy: { cls: "bg-slate-100 text-slate-500 line-through", text: "Đã hủy" },
+  Da_huy: { cls: "bg-stone-100 text-stone-500 line-through", text: "Đã hủy" },
 };
 
 function OrderPage() {
@@ -38,7 +40,7 @@ function OrderPage() {
   const [foods, setFoods] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'warning', text }
   const [submitting, setSubmitting] = useState(false);
 
   const [selectedCat, setSelectedCat] = useState("");
@@ -54,6 +56,10 @@ function OrderPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [emptyTables, setEmptyTables] = useState([]);
 
+  // Popup xác nhận dùng chung cho các thao tác cần hỏi trước khi thực hiện
+  const [confirmState, setConfirmState] = useState(null);
+  // { title, description, confirmText, danger, onConfirm }
+
   const timerRef = useRef(null);
 
   // ===== LOAD =====
@@ -65,7 +71,7 @@ function OrderPage() {
     } catch (err) {
       setBill(null);
       setSentItems([]);
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
@@ -151,8 +157,13 @@ function OrderPage() {
   };
 
   const clearAllPending = () => {
-    if (!window.confirm("Bỏ toàn bộ các món chưa gửi?")) return;
-    setPending([]);
+    setConfirmState({
+      title: "Bỏ giỏ tạm",
+      description: `Bỏ toàn bộ ${pending.length} món chưa gửi?`,
+      confirmText: "Bỏ hết",
+      danger: true,
+      onConfirm: async () => setPending([]),
+    });
   };
 
   // ===== XÁC NHẬN GỬI BẾP =====
@@ -166,11 +177,11 @@ function OrderPage() {
         ghi_chu: p.ghi_chu || null,
       }));
       const r = await submitOrderBatch(bill.ma_hoa_don, items);
-      setMessage("✅ " + r.message);
+      setFeedback({ type: "success", text: r.message });
       setPending([]);
       await loadBill();
     } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     } finally {
       setSubmitting(false);
     }
@@ -180,9 +191,10 @@ function OrderPage() {
   const handleUpdateSentQty = async (item, delta) => {
     const newQty = item.so_luong + delta;
     if (newQty <= 0) {
-      setMessage(
-        '⚠️ Vui lòng dùng nút "Hủy" nếu muốn xóa món này khỏi hoá đơn.',
-      );
+      setFeedback({
+        type: "warning",
+        text: 'Vui lòng dùng nút "Hủy" nếu muốn xóa món này khỏi hoá đơn.',
+      });
       return;
     }
     try {
@@ -193,28 +205,26 @@ function OrderPage() {
       await loadBill();
     } catch (err) {
       if (err.response?.data?.require_confirm) {
-        const ok = window.confirm(
-          `Món "${item.ten_mon_an}" đang được chế biến.\n\n` +
-            `Bạn muốn thay đổi số lượng từ ${item.so_luong} → ${newQty}?\n` +
-            `(Bếp sẽ nhận thông báo cập nhật)`,
-        );
-        if (!ok) return;
-        try {
-          await updateOrderItem(item.ma_chi_tiet_hd, {
-            so_luong: newQty,
-            ghi_chu: item.ghi_chu,
-            xac_nhan_thay_doi: true,
-          });
-          setMessage(
-            `✅ Đã cập nhật ${item.ten_mon_an}: ${item.so_luong} → ${newQty}`,
-          );
-          await loadBill();
-        } catch (err2) {
-          setMessage("❌ " + getErrorMessage(err2));
-        }
+        setConfirmState({
+          title: "Xác nhận đổi số lượng",
+          description: `Món "${item.ten_mon_an}" đang được chế biến. Đổi số lượng từ ${item.so_luong} → ${newQty}? Bếp sẽ nhận thông báo cập nhật.`,
+          confirmText: "Xác nhận đổi",
+          onConfirm: async () => {
+            await updateOrderItem(item.ma_chi_tiet_hd, {
+              so_luong: newQty,
+              ghi_chu: item.ghi_chu,
+              xac_nhan_thay_doi: true,
+            });
+            setFeedback({
+              type: "success",
+              text: `Đã cập nhật ${item.ten_mon_an}: ${item.so_luong} → ${newQty}`,
+            });
+            await loadBill();
+          },
+        });
         return;
       }
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
@@ -222,22 +232,25 @@ function OrderPage() {
   const handleConfirmQrItem = async (item) => {
     try {
       const r = await confirmOrderItem(item.ma_chi_tiet_hd);
-      setMessage("✅ " + r.message);
+      setFeedback({ type: "success", text: r.message });
       await loadBill();
     } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
-  const handleRejectQrItem = async (item) => {
-    if (!window.confirm(`Từ chối món "${item.ten_mon_an}" khách vừa gọi?`)) return;
-    try {
-      const r = await rejectOrderItem(item.ma_chi_tiet_hd);
-      setMessage("✅ " + r.message);
-      await loadBill();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  const handleRejectQrItem = (item) => {
+    setConfirmState({
+      title: "Từ chối món",
+      description: `Từ chối món "${item.ten_mon_an}" khách vừa gọi qua QR?`,
+      confirmText: "Từ chối",
+      danger: true,
+      onConfirm: async () => {
+        const r = await rejectOrderItem(item.ma_chi_tiet_hd);
+        setFeedback({ type: "success", text: r.message });
+        await loadBill();
+      },
+    });
   };
 
   // ===== HỦY MÓN ĐÃ GỬI =====
@@ -251,25 +264,26 @@ function OrderPage() {
     if (!cancelReason.trim()) return; // nút đã disabled, nhưng thêm cho chắc
     try {
       await cancelOrderItem(cancellingItem.ma_chi_tiet_hd, cancelReason.trim());
-      setMessage(`✅ Đã hủy ${cancellingItem.ten_mon_an}`);
+      setFeedback({ type: "success", text: `Đã hủy ${cancellingItem.ten_mon_an}` });
       setCancelOpen(false);
       await loadBill();
     } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
   // ===== HỦY MỞ BÀN =====
-  const handleCancelTable = async () => {
-    if (!window.confirm("Hủy mở bàn này? (Chỉ được hủy khi bàn chưa có món)"))
-      return;
-    try {
-      const r = await cancelTable(tableId);
-      alert(r.message);
-      navigate("/server/tables");
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  const handleCancelTable = () => {
+    setConfirmState({
+      title: "Hủy mở bàn",
+      description: "Hủy mở bàn này? Chỉ thực hiện được khi bàn chưa có món nào được gọi.",
+      confirmText: "Hủy mở bàn",
+      danger: true,
+      onConfirm: async () => {
+        await cancelTable(tableId);
+        navigate("/server/tables");
+      },
+    });
   };
 
   // ===== CHUYỂN BÀN =====
@@ -279,59 +293,60 @@ function OrderPage() {
       setEmptyTables(map.filter((t) => t.trang_thai === "Trong"));
       setTransferOpen(true);
     } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
-  const handleConfirmTransfer = async (banDich) => {
-    try {
-      const r = await transferTable(tableId, banDich.ma_ban);
-      alert(r.message);
-      setTransferOpen(false);
-      // Chuyển sang xem tiếp đơn tại bàn đích vừa nhận
-      navigate(`/server/order/${banDich.ma_ban}`);
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  const askConfirmTransfer = (banDich) => {
+    setTransferOpen(false);
+    setConfirmState({
+      title: "Chuyển bàn",
+      description: `Chuyển toàn bộ hóa đơn từ "${bill.ten_ban}" sang "${banDich.ten_ban}"?`,
+      confirmText: "Chuyển bàn",
+      onConfirm: async () => {
+        const r = await transferTable(tableId, banDich.ma_ban);
+        setFeedback({ type: "success", text: r.message });
+        // Chuyển sang xem tiếp đơn tại bàn đích vừa nhận
+        navigate(`/server/order/${banDich.ma_ban}`);
+      },
+    });
   };
 
   // ===== QUAY LẠI SƠ ĐỒ BÀN (hỏi nếu còn giỏ tạm) =====
   const handleGoBack = () => {
     if (pending.length > 0) {
-      if (
-        !window.confirm(
-          `Bỏ ${pending.length} món chưa gửi và quay lại sơ đồ bàn?`,
-        )
-      )
-        return;
+      setConfirmState({
+        title: "Quay lại sơ đồ bàn",
+        description: `Bỏ ${pending.length} món chưa gửi và quay lại sơ đồ bàn?`,
+        confirmText: "Quay lại",
+        danger: true,
+        onConfirm: async () => navigate("/server/tables"),
+      });
+      return;
     }
     navigate("/server/tables");
   };
 
-  const handleRequestPayment = async () => {
-    if (
-      !window.confirm(
-        "Gửi yêu cầu thanh toán đến thu ngân? Sau bước này, bàn sẽ được thu ngân xử lý.",
-      )
-    )
-      return;
-    try {
-      const r = await requestPayment(bill.ma_hoa_don);
-      alert(r.message);
-      navigate("/server/tables");
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  const handleRequestPayment = () => {
+    setConfirmState({
+      title: "Yêu cầu thanh toán",
+      description: "Gửi yêu cầu thanh toán đến thu ngân? Sau bước này, bàn sẽ được thu ngân xử lý.",
+      confirmText: "Gửi yêu cầu",
+      onConfirm: async () => {
+        await requestPayment(bill.ma_hoa_don);
+        navigate("/server/tables");
+      },
+    });
   };
   // ===== RENDER =====
-  if (loading) return <p className="text-slate-500">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-stone-500">Đang tải...</p>;
   if (!bill)
     return (
       <div>
         <p className="text-red-600 mb-3">Bàn chưa được mở phục vụ.</p>
         <button
           onClick={() => navigate("/server/tables")}
-          className="text-blue-600 hover:underline"
+          className="text-teal-600 hover:underline"
         >
           ← Quay lại sơ đồ bàn
         </button>
@@ -368,20 +383,29 @@ function OrderPage() {
         onClose={() => setTransferOpen(false)}
         title={`Chuyển "${bill.ten_ban}" sang bàn nào?`}
       >
-        <TransferTargetPicker tables={emptyTables} onPick={handleConfirmTransfer} />
+        <TransferTargetPicker tables={emptyTables} onPick={askConfirmTransfer} />
       </Modal>
 
-      {message && (
-        <div className="mb-3 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
-          {message}
+      {feedback && (
+        <div
+          className={
+            "mb-3 px-4 py-2 rounded-lg border text-sm " +
+            (feedback.type === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : feedback.type === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
+          {feedback.text}
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-160px)]">
         {/* CỘT TRÁI: MENU */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4 flex flex-col lg:h-full lg:overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-stone-200 p-4 flex flex-col lg:h-full lg:overflow-hidden">
           {/* Thanh chip danh mục */}
-          <div className="shrink-0 flex flex-wrap gap-2 mb-3 pb-3 border-b border-slate-100">
+          <div className="shrink-0 flex flex-wrap gap-2 mb-3 pb-3 border-b border-stone-100">
             <CategoryChip
               label={`Tất cả (${foods.length})`}
               active={selectedCat === ""}
@@ -406,7 +430,7 @@ function OrderPage() {
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-9 gap-2">
               {filteredFoods.length === 0 ? (
-                <p className="text-slate-400 text-sm col-span-full text-center py-8">
+                <p className="text-stone-400 text-sm col-span-full text-center py-8">
                   Danh mục này chưa có món nào.
                 </p>
               ) : (
@@ -472,13 +496,13 @@ function OrderPage() {
           </div>
 
           {/* MÓN ĐÃ GỬI */}
-          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl border border-slate-200 p-3">
-            <h3 className="shrink-0 text-sm font-semibold text-slate-800 mb-2">
+          <div className="flex-1 min-h-0 flex flex-col bg-white rounded-xl border border-stone-200 p-3">
+            <h3 className="shrink-0 text-sm font-semibold text-stone-800 mb-2">
               Món đã gọi ({activeSent.length})
             </h3>
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5">
               {visibleSent.length === 0 ? (
-                <p className="text-slate-400 text-sm text-center py-6">
+                <p className="text-stone-400 text-sm text-center py-6">
                   Chưa gửi món nào xuống bếp.
                 </p>
               ) : (
@@ -497,7 +521,7 @@ function OrderPage() {
               {cancelledSent.length > 0 && (
                 <button
                   onClick={() => setShowCancelled(!showCancelled)}
-                  className="text-xs text-slate-500 hover:text-slate-700 mt-2 py-1 border-t border-slate-100"
+                  className="text-xs text-stone-500 hover:text-stone-700 mt-2 py-1 border-t border-stone-100"
                 >
                   {showCancelled
                     ? `▲ Ẩn ${cancelledSent.length} món đã hủy`
@@ -508,9 +532,9 @@ function OrderPage() {
           </div>
 
           {/* TỔNG TIỀN */}
-          <div className="shrink-0 bg-slate-800 text-white rounded-xl p-3">
+          <div className="shrink-0 bg-stone-800 text-white rounded-xl p-3">
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-300">Đã gửi:</span>
+              <span className="text-stone-300">Đã gửi:</span>
               <span>{sentTotal.toLocaleString("vi-VN")}đ</span>
             </div>
             {pending.length > 0 && (
@@ -521,15 +545,28 @@ function OrderPage() {
                 </span>
               </div>
             )}
-            <div className="border-t border-slate-600 mt-1.5 pt-1.5 flex justify-between items-center">
-              <span className="text-sm text-slate-300">Tổng cộng:</span>
-              <span className="text-lg font-bold">
+            <div className="border-t border-stone-600 mt-1.5 pt-1.5 flex justify-between items-center">
+              <span className="text-sm text-stone-300">Tổng cộng:</span>
+              <span className="text-lg font-bold text-teal-300">
                 {grandTotal.toLocaleString("vi-VN")}đ
               </span>
             </div>
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        title={confirmState?.title}
+        description={confirmState?.description}
+        confirmText={confirmState?.confirmText}
+        danger={confirmState?.danger}
+        onConfirm={async () => {
+          await confirmState.onConfirm();
+          setConfirmState(null);
+        }}
+        onClose={() => setConfirmState(null)}
+      />
 
       {/* MODAL HỦY MÓN ĐÃ GỬI */}
       <Modal
@@ -557,22 +594,23 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer
     <div>
       <button
         onClick={onBack}
-        className="text-sm text-slate-500 hover:text-slate-700 mb-1"
+        className="flex items-center gap-1.5 text-base text-stone-500 hover:text-stone-700 mb-2 font-medium"
       >
-        ← Quay lại sơ đồ bàn
+        <ArrowLeft className="h-5 w-5" />
+        Quay lại sơ đồ bàn
       </button>
-      <h2 className="text-xl font-bold text-slate-800">
+      <h2 className="text-3xl font-bold text-stone-800">
         {bill.ten_ban}{" "}
-        <span className="text-slate-400 font-normal text-sm">
+        <span className="text-stone-400 font-normal text-lg">
           ({bill.ten_khu_vuc})
         </span>
       </h2>
-      <p className="text-xs text-slate-500">Hoá đơn #{bill.ma_hoa_don}</p>
+      <p className="text-sm text-stone-500">Hoá đơn #{bill.ma_hoa_don}</p>
     </div>
     <div className="flex gap-2">
       <button
         onClick={onTransfer}
-        className="text-sm text-slate-600 border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-lg"
+        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg"
       >
         🔀 Chuyển bàn
       </button>
@@ -584,7 +622,7 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer
       </button>
       <button
         onClick={onRequestPayment}
-        className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium"
+        className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg font-medium"
       >
         💰 Yêu cầu thanh toán
       </button>
@@ -595,7 +633,7 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer
 const FoodCard = ({ mon, onClick }) => (
   <button
     onClick={() => onClick(mon)}
-    className="flex flex-col items-center text-center bg-slate-50 border border-slate-200 rounded-lg p-1.5 hover:border-amber-400 hover:bg-amber-50 transition-all"
+    className="flex flex-col items-center text-center bg-stone-50 border border-stone-200 rounded-lg p-1.5 hover:border-amber-400 hover:bg-amber-50 transition-all"
   >
     {mon.hinh_anh_url ? (
       <img
@@ -608,11 +646,11 @@ const FoodCard = ({ mon, onClick }) => (
         className="w-10 h-10 object-cover rounded mb-1"
       />
     ) : (
-      <div className="w-10 h-10 bg-slate-100 rounded mb-1 flex items-center justify-center text-slate-300 text-[10px]">
+      <div className="w-10 h-10 bg-stone-100 rounded mb-1 flex items-center justify-center text-stone-300 text-[10px]">
         Không ảnh
       </div>
     )}
-    <div className="text-xs font-medium text-slate-800 line-clamp-2">
+    <div className="text-xs font-medium text-stone-800 line-clamp-2">
       {mon.ten_mon_an}
     </div>
   </button>
@@ -624,7 +662,7 @@ const CategoryChip = ({ label, active, onClick }) => (
       "px-3 py-1.5 rounded-full text-xs font-medium border transition-all " +
       (active
         ? "bg-amber-500 text-white border-amber-500"
-        : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-700")
+        : "bg-white text-stone-600 border-stone-200 hover:border-amber-300 hover:text-amber-700")
     }
   >
     {label}
@@ -635,7 +673,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
   <div className="bg-white border border-amber-200 rounded-lg px-2 py-1.5">
     <div className="flex items-center gap-1.5">
       <div
-        className="flex-1 min-w-0 text-sm font-medium text-slate-800 truncate"
+        className="flex-1 min-w-0 text-sm font-medium text-stone-800 truncate"
         title={item.ten_mon_an}
       >
         {item.ten_mon_an}
@@ -643,7 +681,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong - 1)}
-          className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
+          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
         >
           −
         </button>
@@ -652,17 +690,17 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
         </span>
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong + 1)}
-          className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
+          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
         >
           +
         </button>
       </div>
-      <span className="w-16 shrink-0 text-right text-xs font-medium text-slate-800">
+      <span className="w-16 shrink-0 text-right text-xs font-medium text-stone-800">
         {(item.so_luong * Number(item.gia_ban)).toLocaleString("vi-VN")}đ
       </span>
       <button
         onClick={() => onRemove(item._tmp_id)}
-        className="shrink-0 text-slate-400 hover:text-red-500 text-base leading-none"
+        className="shrink-0 text-stone-400 hover:text-red-500 text-base leading-none"
       >
         &times;
       </button>
@@ -672,7 +710,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
       placeholder="Ghi chú (VD: ít cay...)"
       value={item.ghi_chu}
       onChange={(e) => onUpdateNote(item._tmp_id, e.target.value)}
-      className="w-full mt-1 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-amber-400"
+      className="w-full mt-1 border border-stone-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-amber-400"
     />
   </div>
 );
@@ -693,17 +731,17 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
       className={
         "border rounded-lg px-2 py-1.5 " +
         (isCancelled
-          ? "opacity-50 border-slate-200"
+          ? "opacity-50 border-stone-200"
           : isPendingQr
             ? "border-amber-300 bg-amber-50/60"
-            : "border-slate-200")
+            : "border-stone-200")
       }
     >
       <div className="flex items-center gap-1.5">
         <div
           className={
             "flex-1 min-w-0 text-sm font-medium truncate " +
-            (isCancelled ? "line-through text-slate-500" : "text-slate-800")
+            (isCancelled ? "line-through text-stone-500" : "text-stone-800")
           }
           title={item.ten_mon_an}
         >
@@ -717,25 +755,25 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => onUpdateQty(item, -1)}
-              className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
+              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
             >
               −
             </button>
             <span className="w-5 text-center text-xs">{item.so_luong}</span>
             <button
               onClick={() => onUpdateQty(item, +1)}
-              className="w-5 h-5 rounded border border-slate-300 text-xs hover:bg-slate-100"
+              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
             >
               +
             </button>
           </div>
         ) : (
-          <span className="shrink-0 text-xs text-slate-600">
+          <span className="shrink-0 text-xs text-stone-600">
             SL {item.so_luong}
           </span>
         )}
 
-        <span className="w-16 shrink-0 text-right text-xs font-medium text-slate-800">
+        <span className="w-16 shrink-0 text-right text-xs font-medium text-stone-800">
           {Number(item.thanh_tien).toLocaleString("vi-VN")}đ
         </span>
 
@@ -768,7 +806,7 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
       )}
 
       {hasExtra && (
-        <div className="text-xs text-slate-400 italic mt-0.5 truncate">
+        <div className="text-xs text-stone-400 italic mt-0.5 truncate">
           {item.ghi_chu && <>Ghi chú: {item.ghi_chu}</>}
           {item.ghi_chu && item.ten_nv_xac_nhan && " · "}
           {item.ten_nv_xac_nhan && <>NV: {item.ten_nv_xac_nhan}</>}
@@ -800,7 +838,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-sm text-slate-600">
+      <div className="text-sm text-stone-600">
         Bạn đang hủy món này. Vui lòng chọn lý do:
       </div>
 
@@ -808,7 +846,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
         {CANCEL_REASONS.map((r) => (
           <label
             key={r}
-            className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50"
+            className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50"
           >
             <input
               type="radio"
@@ -818,11 +856,11 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
               onChange={(e) => setReason(e.target.value)}
               className="accent-red-600"
             />
-            <span className="text-sm text-slate-700">{r}</span>
+            <span className="text-sm text-stone-700">{r}</span>
           </label>
         ))}
 
-        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-slate-200 rounded-lg hover:bg-slate-50">
+        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50">
           <input
             type="radio"
             name="cancelReason"
@@ -831,7 +869,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
             onChange={(e) => setReason(e.target.value)}
             className="accent-red-600"
           />
-          <span className="text-sm text-slate-700">Khác...</span>
+          <span className="text-sm text-stone-700">Khác...</span>
         </label>
 
         {isCustom && (
@@ -841,7 +879,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
             placeholder="Nhập lý do cụ thể..."
             rows={2}
             autoFocus
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+            className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
           />
         )}
       </div>
@@ -849,7 +887,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
       <div className="flex gap-2 justify-end mt-2">
         <button
           onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
+          className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-600 hover:bg-stone-50"
         >
           Đóng
         </button>

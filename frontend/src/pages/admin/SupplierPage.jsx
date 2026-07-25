@@ -9,6 +9,7 @@ import SupplierForm from "../../components/supplier/SupplierForm";
 import SupplierTable from "../../components/supplier/SupplierTable";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 import { getErrorMessage } from "../../api/errorHandler";
 
@@ -29,6 +30,10 @@ function SupplierPage() {
   const [soDienThoai, setSoDienThoai] = useState("");
   const [diaChi, setDiaChi] = useState("");
   const [ghiChu, setGhiChu] = useState("");
+
+  // Popup xác nhận
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
 
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
@@ -84,21 +89,20 @@ function SupplierPage() {
     setFormOpen(true);
   }
 
-  async function handleSave() {
-    const payload = {
+  function buildSupplierPayload() {
+    return {
       ten_nha_cung_cap: tenNCC,
       so_dien_thoai: soDienThoai,
       dia_chi: diaChi,
       ghi_chu: ghiChu,
     };
+  }
+
+  // Thêm mới: lưu trực tiếp
+  async function doCreate() {
     try {
-      if (editingId === null) {
-        const r = await createSupplier(payload);
-        setMessage("✅ " + r.message);
-      } else {
-        const r = await updateSupplier(editingId, payload);
-        setMessage("✅ " + r.message);
-      }
+      const r = await createSupplier(buildSupplierPayload());
+      setMessage("✅ " + r.message);
       closeForm();
       await loadData();
     } catch (err) {
@@ -106,38 +110,66 @@ function SupplierPage() {
     }
   }
 
-  async function handleToggleStatus(ncc) {
-    const next = ncc.trang_thai === "Hoat_dong" ? "Ngung_hop_tac" : "Hoat_dong";
-    try {
-      const r = await updateSupplierStatus(ncc.ma_nha_cung_cap, next);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+  // Cập nhật: qua popup xác nhận, lỗi hiện ngay trong popup
+  async function doUpdate() {
+    const r = await updateSupplier(editingId, buildSupplierPayload());
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    closeForm();
+    await loadData();
+  }
+
+  function requestSave() {
+    if (editingId === null) {
+      doCreate();
+    } else {
+      setConfirmUpdateOpen(true);
     }
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  // Đổi trạng thái (popup xác nhận)
+  function askToggleStatus(ncc) {
+    setToggleTarget(ncc);
+  }
+  async function confirmToggleStatus() {
+    const next =
+      toggleTarget.trang_thai === "Hoat_dong" ? "Ngung_hop_tac" : "Hoat_dong";
+    const r = await updateSupplierStatus(toggleTarget.ma_nha_cung_cap, next);
+    setMessage("✅ " + r.message);
+    setToggleTarget(null);
+    await loadData();
+  }
+
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Nhà cung cấp</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h2 className="text-xl font-bold text-stone-800">Quản lý Nhà cung cấp</h2>
+          <p className="text-sm text-stone-500 mt-0.5">
             Danh mục nhà cung cấp dùng khi lập phiếu nhập kho.
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thêm nhà cung cấp
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -145,7 +177,7 @@ function SupplierPage() {
       <SupplierTable
         suppliers={suppliers}
         onEdit={handleEdit}
-        onToggleStatus={handleToggleStatus}
+        onToggleStatus={askToggleStatus}
       />
 
       <Pagination
@@ -170,10 +202,39 @@ function SupplierPage() {
           setDiaChi={setDiaChi}
           ghiChu={ghiChu}
           setGhiChu={setGhiChu}
-          onSave={handleSave}
+          onSave={requestSave}
           onCancel={closeForm}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        title={
+          toggleTarget?.trang_thai === "Hoat_dong"
+            ? "Ngừng hợp tác"
+            : "Kích hoạt nhà cung cấp"
+        }
+        description={
+          toggleTarget &&
+          (toggleTarget.trang_thai === "Hoat_dong"
+            ? `Ngừng hợp tác với nhà cung cấp "${toggleTarget.ten_nha_cung_cap}"? Nhà cung cấp sẽ ẩn khỏi danh sách chọn khi lập phiếu nhập kho.`
+            : `Kích hoạt lại nhà cung cấp "${toggleTarget.ten_nha_cung_cap}"?`)
+        }
+        confirmText={
+          toggleTarget?.trang_thai === "Hoat_dong" ? "Ngừng hợp tác" : "Kích hoạt"
+        }
+        onConfirm={confirmToggleStatus}
+        onClose={() => setToggleTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật nhà cung cấp"
+        description={`Xác nhận lưu thay đổi cho nhà cung cấp "${tenNCC}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

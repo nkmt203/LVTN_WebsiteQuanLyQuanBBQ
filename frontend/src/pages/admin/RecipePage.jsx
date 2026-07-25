@@ -14,9 +14,9 @@ import RecipeTable from "../../components/recipe/RecipeTable";
 import RecipeFilterBar from "../../components/recipe/RecipeFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 import { getErrorMessage } from "../../api/errorHandler";
-// ...
 
 const PER_PAGE = 10;
 
@@ -42,6 +42,11 @@ function RecipePage() {
   const [editDVT, setEditDVT] = useState("");
   const [editSL, setEditSL] = useState("");
   const [editGhiChu, setEditGhiChu] = useState("");
+
+  // Popup xác nhận
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
 
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
@@ -99,7 +104,7 @@ function RecipePage() {
     loadData({ p });
   }
 
-  // === THÊM (nhiều dòng) ===
+  // === THÊM (nhiều dòng): lưu trực tiếp ===
   async function handleAdd(payload) {
     try {
       const r = await createRecipes(payload);
@@ -111,7 +116,7 @@ function RecipePage() {
     }
   }
 
-  // === SỬA (1 dòng) ===
+  // === SỬA (1 dòng): qua popup xác nhận ===
   function handleEditClick(r) {
     setEditingId(r.ma_dinh_muc);
     setEditTenNL(r.ten_nguyen_lieu);
@@ -121,67 +126,77 @@ function RecipePage() {
     setEditOpen(true);
   }
 
-  async function handleEditSave() {
-    try {
-      const r = await updateRecipe(editingId, {
-        so_luong_su_dung: Number(editSL),
-        ghi_chu: editGhiChu,
-      });
-      setMessage("✅ " + r.message);
-      setEditOpen(false);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  function requestEditSave() {
+    setConfirmUpdateOpen(true);
   }
 
-  // === ĐỔI TRẠNG THÁI ===
-  async function handleToggleStatus(r) {
-    const next = r.trang_thai === "Hoat_dong" ? "Ngung_su_dung" : "Hoat_dong";
-    try {
-      const res = await updateRecipeStatus(r.ma_dinh_muc, next);
-      setMessage("✅ " + res.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  async function doUpdate() {
+    const r = await updateRecipe(editingId, {
+      so_luong_su_dung: Number(editSL),
+      ghi_chu: editGhiChu,
+    });
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    setEditOpen(false);
+    await loadData();
   }
 
-  // === XÓA ===
-  async function handleDelete(id) {
-    if (!window.confirm("Xác nhận xóa dòng định mức này?")) return;
-    try {
-      const r = await deleteRecipe(id);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  // === ĐỔI TRẠNG THÁI (popup xác nhận) ===
+  function askToggleStatus(r) {
+    setToggleTarget(r);
+  }
+  async function confirmToggleStatus() {
+    const next =
+      toggleTarget.trang_thai === "Hoat_dong" ? "Ngung_su_dung" : "Hoat_dong";
+    const res = await updateRecipeStatus(toggleTarget.ma_dinh_muc, next);
+    setMessage("✅ " + res.message);
+    setToggleTarget(null);
+    await loadData();
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  // === XÓA (popup xác nhận) ===
+  function askDelete(r) {
+    setDeleteTarget(r);
+  }
+  async function confirmDelete() {
+    const r = await deleteRecipe(deleteTarget.ma_dinh_muc);
+    setMessage("✅ " + r.message);
+    setDeleteTarget(null);
+    await loadData();
+  }
+
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 className="text-xl font-bold text-stone-800">
             Quản lý Định mức nguyên liệu
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-stone-500 mt-0.5">
             Thiết lập công thức nguyên liệu cho từng món ăn.
           </p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thiết lập định mức
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -198,8 +213,8 @@ function RecipePage() {
       <RecipeTable
         recipes={recipes}
         onEdit={handleEditClick}
-        onDelete={handleDelete}
-        onToggleStatus={handleToggleStatus}
+        onDelete={askDelete}
+        onToggleStatus={askToggleStatus}
       />
 
       <Pagination
@@ -236,10 +251,52 @@ function RecipePage() {
           setSoLuong={setEditSL}
           ghiChu={editGhiChu}
           setGhiChu={setEditGhiChu}
-          onSave={handleEditSave}
+          onSave={requestEditSave}
           onCancel={() => setEditOpen(false)}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa định mức"
+        description={
+          deleteTarget &&
+          `Xác nhận xóa định mức "${deleteTarget.ten_nguyen_lieu}" của món "${deleteTarget.ten_mon_an}"? Hành động này không thể hoàn tác.`
+        }
+        confirmText="Xóa"
+        danger
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        title={
+          toggleTarget?.trang_thai === "Hoat_dong"
+            ? "Ngừng sử dụng định mức"
+            : "Kích hoạt định mức"
+        }
+        description={
+          toggleTarget &&
+          (toggleTarget.trang_thai === "Hoat_dong"
+            ? `Ngừng sử dụng định mức "${toggleTarget.ten_nguyen_lieu}" của món "${toggleTarget.ten_mon_an}"?`
+            : `Kích hoạt lại định mức "${toggleTarget.ten_nguyen_lieu}" của món "${toggleTarget.ten_mon_an}"?`)
+        }
+        confirmText={
+          toggleTarget?.trang_thai === "Hoat_dong" ? "Ngừng SD" : "Kích hoạt"
+        }
+        onConfirm={confirmToggleStatus}
+        onClose={() => setToggleTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật định mức"
+        description={`Xác nhận lưu thay đổi định mức nguyên liệu "${editTenNL}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

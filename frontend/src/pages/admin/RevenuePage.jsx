@@ -60,46 +60,55 @@ function RevenuePage() {
     }
   };
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="mb-5">
-        <h2 className="text-xl font-bold text-slate-800">Báo cáo doanh thu</h2>
-        <p className="text-sm text-slate-500 mt-0.5">
+        <h2 className="text-xl font-bold text-stone-800">Báo cáo doanh thu</h2>
+        <p className="text-sm text-stone-500 mt-0.5">
           Tra cứu hóa đơn đã thanh toán và tổng doanh thu theo khoảng ngày.
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap items-end gap-3">
+      <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Từ ngày</label>
+          <label className="text-xs text-stone-500 block mb-1">Từ ngày</label>
           <input
             type="date"
             value={tuNgay}
             onChange={(e) => setTuNgay(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
           />
         </div>
         <div>
-          <label className="text-xs text-slate-500 block mb-1">Đến ngày</label>
+          <label className="text-xs text-stone-500 block mb-1">Đến ngày</label>
           <input
             type="date"
             value={denNgay}
             onChange={(e) => setDenNgay(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
           />
         </div>
         <button
           onClick={handleSearch}
-          className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           Tra cứu
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -122,33 +131,33 @@ function RevenuePage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50">
+          <thead className="bg-stone-50">
             <tr>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Mã HĐ</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Bàn</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Khu vực</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Thanh toán lúc</th>
-              <th className="text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3">Hình thức</th>
-              <th className="text-right text-xs font-semibold text-slate-500 uppercase px-4 py-3">Tổng tiền</th>
-              <th className="text-center text-xs font-semibold text-slate-500 uppercase px-4 py-3">Thao tác</th>
+              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Mã HĐ</th>
+              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Bàn</th>
+              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Khu vực</th>
+              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Thanh toán lúc</th>
+              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Hình thức</th>
+              <th className="text-right text-xs font-semibold text-stone-500 uppercase px-4 py-3">Tổng tiền</th>
+              <th className="text-center text-xs font-semibold text-stone-500 uppercase px-4 py-3">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {bills.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-center text-slate-400" colSpan={7}>
+                <td className="px-4 py-6 text-center text-stone-400" colSpan={7}>
                   Không có hóa đơn nào trong khoảng ngày đã chọn.
                 </td>
               </tr>
             )}
             {bills.map((b) => (
-              <tr key={b.ma_hoa_don} className="border-t border-slate-100 hover:bg-slate-50">
+              <tr key={b.ma_hoa_don} className="border-t border-stone-100 hover:bg-stone-50">
                 <td className="px-4 py-2.5">#{b.ma_hoa_don}</td>
-                <td className="px-4 py-2.5 font-medium text-slate-800">{b.ten_ban}</td>
-                <td className="px-4 py-2.5 text-slate-500">{b.ten_khu_vuc}</td>
-                <td className="px-4 py-2.5 text-slate-500">
+                <td className="px-4 py-2.5 font-medium text-stone-800">{b.ten_ban}</td>
+                <td className="px-4 py-2.5 text-stone-500">{b.ten_khu_vuc}</td>
+                <td className="px-4 py-2.5 text-stone-500">
                   {b.thoi_gian_dong_ban
                     ? new Date(b.thoi_gian_dong_ban).toLocaleString("vi-VN")
                     : "—"}
@@ -162,7 +171,7 @@ function RevenuePage() {
                 <td className="px-4 py-2.5 text-center">
                   <button
                     onClick={() => handleViewDetail(b)}
-                    className="text-slate-600 hover:text-slate-900 text-sm"
+                    className="text-stone-600 hover:text-stone-900 text-sm"
                   >
                     Xem chi tiết
                   </button>
@@ -180,9 +189,9 @@ function RevenuePage() {
       >
         {billDetail && (
           <div>
-            <div className="border border-slate-200 rounded-lg overflow-hidden mb-3">
+            <div className="border border-stone-200 rounded-lg overflow-hidden mb-3">
               <table className="w-full text-sm">
-                <thead className="bg-slate-100 text-slate-600 text-xs uppercase">
+                <thead className="bg-stone-100 text-stone-600 text-xs uppercase">
                   <tr>
                     <th className="px-2 py-1.5 text-center w-10">SL</th>
                     <th className="px-2 py-1.5 text-left">Món</th>
@@ -194,7 +203,7 @@ function RevenuePage() {
                   {billDetail.items
                     .filter((i) => i.trang_thai !== "Da_huy")
                     .map((i) => (
-                      <tr key={i.ma_chi_tiet_hd} className="border-t border-slate-100">
+                      <tr key={i.ma_chi_tiet_hd} className="border-t border-stone-100">
                         <td className="px-2 py-1.5 text-center">{i.so_luong}</td>
                         <td className="px-2 py-1.5">{i.ten_mon_an}</td>
                         <td className="px-2 py-1.5 text-right">
@@ -208,7 +217,7 @@ function RevenuePage() {
                 </tbody>
               </table>
             </div>
-            <div className="text-right text-base font-bold text-slate-800">
+            <div className="text-right text-base font-bold text-stone-800">
               Tổng: {Number(billDetail.hoaDon.tong_tien_thanh_toan).toLocaleString("vi-VN")}đ
             </div>
           </div>
@@ -219,9 +228,9 @@ function RevenuePage() {
 }
 
 const SummaryBox = ({ label, value }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-4">
-    <div className="text-xs text-slate-500 mb-1">{label}</div>
-    <div className="text-lg font-bold text-slate-800">{value}</div>
+  <div className="bg-white rounded-xl border border-stone-200 p-4">
+    <div className="text-xs text-stone-500 mb-1">{label}</div>
+    <div className="text-lg font-bold text-stone-800">{value}</div>
   </div>
 );
 

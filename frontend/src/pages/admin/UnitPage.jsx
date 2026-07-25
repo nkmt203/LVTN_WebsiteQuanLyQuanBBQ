@@ -10,8 +10,8 @@ import UnitTable from "../../components/unit/UnitTable";
 import UnitFilterBar from "../../components/unit/UnitFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { getErrorMessage } from "../../api/errorHandler";
-// ...
 
 const PER_PAGE = 8;
 
@@ -31,6 +31,10 @@ function UnitPage() {
   const [editingId, setEditingId] = useState(null);
   const [tenDVT, setTenDVT] = useState("");
   const [formTrangThai, setFormTrangThai] = useState("Dang_dung");
+
+  // Popup xác nhận
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
 
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
@@ -94,16 +98,11 @@ function UnitPage() {
     setFormOpen(true);
   }
 
-  async function handleSave() {
-    const payload = { ten_don_vi_tinh: tenDVT, trang_thai: formTrangThai };
+  // Thêm mới: lưu trực tiếp
+  async function doCreate() {
     try {
-      if (editingId === null) {
-        const r = await createUnit(payload);
-        setMessage("✅ " + r.message);
-      } else {
-        const r = await updateUnit(editingId, payload);
-        setMessage("✅ " + r.message);
-      }
+      const r = await createUnit({ ten_don_vi_tinh: tenDVT, trang_thai: formTrangThai });
+      setMessage("✅ " + r.message);
       closeForm();
       await loadData();
     } catch (err) {
@@ -111,40 +110,69 @@ function UnitPage() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Xác nhận xóa đơn vị tính này?")) return;
-    try {
-      const r = await deleteUnit(id);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+  // Cập nhật: qua popup xác nhận, lỗi hiện ngay trong popup
+  async function doUpdate() {
+    const r = await updateUnit(editingId, {
+      ten_don_vi_tinh: tenDVT,
+      trang_thai: formTrangThai,
+    });
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    closeForm();
+    await loadData();
+  }
+
+  function requestSave() {
+    if (editingId === null) {
+      doCreate();
+    } else {
+      setConfirmUpdateOpen(true);
     }
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  // Xóa (popup xác nhận)
+  function askDelete(dvt) {
+    setDeleteTarget(dvt);
+  }
+  async function confirmDelete() {
+    const r = await deleteUnit(deleteTarget.ma_don_vi_tinh);
+    setMessage("✅ " + r.message);
+    setDeleteTarget(null);
+    await loadData();
+  }
+
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 className="text-xl font-bold text-stone-800">
             Quản lý Đơn vị tính
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-stone-500 mt-0.5">
             Thêm, sửa và xóa các đơn vị tính dùng cho nguyên liệu.
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thêm đơn vị tính
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -158,7 +186,7 @@ function UnitPage() {
         onReset={handleReset}
       />
 
-      <UnitTable units={units} onEdit={handleEdit} onDelete={handleDelete} />
+      <UnitTable units={units} onEdit={handleEdit} onDelete={askDelete} />
 
       <Pagination
         page={page}
@@ -182,10 +210,32 @@ function UnitPage() {
           setTenDVT={setTenDVT}
           trangThai={formTrangThai}
           setTrangThai={setFormTrangThai}
-          onSave={handleSave}
+          onSave={requestSave}
           onCancel={closeForm}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa đơn vị tính"
+        description={
+          deleteTarget &&
+          `Xác nhận xóa đơn vị tính "${deleteTarget.ten_don_vi_tinh}"? Hành động này không thể hoàn tác.`
+        }
+        confirmText="Xóa"
+        danger
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật đơn vị tính"
+        description={`Xác nhận lưu thay đổi cho đơn vị tính "${tenDVT}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

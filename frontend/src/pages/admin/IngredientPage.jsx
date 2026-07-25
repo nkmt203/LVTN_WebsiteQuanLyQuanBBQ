@@ -12,8 +12,8 @@ import IngredientTable from "../../components/ingredient/IngredientTable";
 import IngredientFilterBar from "../../components/ingredient/IngredientFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { getErrorMessage } from "../../api/errorHandler";
-// ...
 
 const PER_PAGE = 10;
 
@@ -35,6 +35,11 @@ function IngredientPage() {
   const [editingId, setEditingId] = useState(null);
   const [tenNL, setTenNL] = useState("");
   const [maDVT, setMaDVT] = useState("");
+
+  // Popup xác nhận
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
 
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
@@ -106,16 +111,11 @@ function IngredientPage() {
     setFormOpen(true);
   }
 
-  async function handleSave() {
-    const payload = { ten_nguyen_lieu: tenNL, ma_don_vi_tinh: Number(maDVT) };
+  // Thêm mới: lưu trực tiếp
+  async function doCreate() {
     try {
-      if (editingId === null) {
-        const r = await createIngredient(payload);
-        setMessage("✅ " + r.message);
-      } else {
-        const r = await updateIngredient(editingId, payload);
-        setMessage("✅ " + r.message);
-      }
+      const r = await createIngredient({ ten_nguyen_lieu: tenNL, ma_don_vi_tinh: Number(maDVT) });
+      setMessage("✅ " + r.message);
       closeForm();
       await loadData();
     } catch (err) {
@@ -123,51 +123,82 @@ function IngredientPage() {
     }
   }
 
-  async function handleToggleStatus(nl) {
-    const next = nl.trang_thai === "Hoat_dong" ? "Ngung_su_dung" : "Hoat_dong";
-    try {
-      const r = await updateIngredientStatus(nl.ma_nguyen_lieu, next);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+  // Cập nhật: qua popup xác nhận, lỗi hiện ngay trong popup
+  async function doUpdate() {
+    const r = await updateIngredient(editingId, {
+      ten_nguyen_lieu: tenNL,
+      ma_don_vi_tinh: Number(maDVT),
+    });
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    closeForm();
+    await loadData();
+  }
+
+  function requestSave() {
+    if (editingId === null) {
+      doCreate();
+    } else {
+      setConfirmUpdateOpen(true);
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Xác nhận xóa nguyên liệu này?")) return;
-    try {
-      const r = await deleteIngredient(id);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  // Đổi trạng thái (popup xác nhận)
+  function askToggleStatus(nl) {
+    setToggleTarget(nl);
+  }
+  async function confirmToggleStatus() {
+    const next =
+      toggleTarget.trang_thai === "Hoat_dong" ? "Ngung_su_dung" : "Hoat_dong";
+    const r = await updateIngredientStatus(toggleTarget.ma_nguyen_lieu, next);
+    setMessage("✅ " + r.message);
+    setToggleTarget(null);
+    await loadData();
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  // Xóa (popup xác nhận)
+  function askDelete(nl) {
+    setDeleteTarget(nl);
+  }
+  async function confirmDelete() {
+    const r = await deleteIngredient(deleteTarget.ma_nguyen_lieu);
+    setMessage("✅ " + r.message);
+    setDeleteTarget(null);
+    await loadData();
+  }
+
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 className="text-xl font-bold text-stone-800">
             Quản lý Nguyên liệu
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-stone-500 mt-0.5">
             Thêm, sửa, đổi trạng thái và xóa nguyên liệu trong hệ thống.
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thêm nguyên liệu
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -187,8 +218,8 @@ function IngredientPage() {
       <IngredientTable
         ingredients={ingredients}
         onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggleStatus={handleToggleStatus}
+        onDelete={askDelete}
+        onToggleStatus={askToggleStatus}
       />
 
       <Pagination
@@ -214,10 +245,52 @@ function IngredientPage() {
           maDVT={maDVT}
           setMaDVT={setMaDVT}
           units={units}
-          onSave={handleSave}
+          onSave={requestSave}
           onCancel={closeForm}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa nguyên liệu"
+        description={
+          deleteTarget &&
+          `Xác nhận xóa nguyên liệu "${deleteTarget.ten_nguyen_lieu}"? Hành động này không thể hoàn tác.`
+        }
+        confirmText="Xóa"
+        danger
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        title={
+          toggleTarget?.trang_thai === "Hoat_dong"
+            ? "Ngừng sử dụng nguyên liệu"
+            : "Kích hoạt nguyên liệu"
+        }
+        description={
+          toggleTarget &&
+          (toggleTarget.trang_thai === "Hoat_dong"
+            ? `Ngừng sử dụng nguyên liệu "${toggleTarget.ten_nguyen_lieu}"?`
+            : `Kích hoạt lại nguyên liệu "${toggleTarget.ten_nguyen_lieu}"?`)
+        }
+        confirmText={
+          toggleTarget?.trang_thai === "Hoat_dong" ? "Ngừng SD" : "Kích hoạt"
+        }
+        onConfirm={confirmToggleStatus}
+        onClose={() => setToggleTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật nguyên liệu"
+        description={`Xác nhận lưu thay đổi cho nguyên liệu "${tenNL}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

@@ -16,13 +16,13 @@ function KitchenLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
-        <h1 className="text-lg font-bold text-orange-600">🔥 BBQ Bếp</h1>
+    <div className="min-h-screen bg-stone-100 flex flex-col">
+      <header className="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-between shadow-sm">
+        <h1 className="text-lg font-bold text-stone-800">🔥 MeatOSync Bếp</h1>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-sm font-medium text-slate-800">{user?.ho_ten}</div>
-            <div className="text-xs text-slate-500">{user?.ten_vai_tro}</div>
+            <div className="text-sm font-medium text-stone-800">{user?.ho_ten}</div>
+            <div className="text-xs text-stone-500">{user?.ten_vai_tro}</div>
           </div>
           <button onClick={handleLogout}
                   className="text-sm text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg">

@@ -1,6 +1,6 @@
 function UnitForm({ editingId, tenDVT, setTenDVT, trangThai, setTrangThai, onSave, onCancel }) {
-  const lbl = 'text-sm font-medium text-slate-600 mb-1';
-  const inp = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 w-full';
+  const lbl = 'text-sm font-medium text-stone-600 mb-1';
+  const inp = 'border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 w-full';
 
   return (
     <div>
@@ -20,11 +20,11 @@ function UnitForm({ editingId, tenDVT, setTenDVT, trangThai, setTrangThai, onSav
           </div>
         )}
       </div>
-      <div className="flex gap-2 mt-5 justify-end">
-        <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">
+      <div className="flex gap-2 mt-6 justify-end border-t border-stone-100 pt-4">
+        <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-600 hover:bg-stone-50">
           Huỷ
         </button>
-        <button onClick={onSave} className="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm hover:bg-slate-900">
+        <button onClick={onSave} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
           {editingId === null ? 'Thêm' : 'Cập nhật'}
         </button>
       </div>

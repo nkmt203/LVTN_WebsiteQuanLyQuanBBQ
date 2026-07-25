@@ -1,42 +1,58 @@
+import ToggleSwitch from "../common/ToggleSwitch";
+
 function IngredientTable({ ingredients, onEdit, onDelete, onToggleStatus }) {
-  const th = 'text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3';
-  const td = 'px-4 py-3 text-sm text-slate-700 border-t border-slate-100';
+  const th = 'text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3';
+  const td = 'px-4 py-3 text-sm text-stone-700 border-t border-stone-100';
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
       <table className="w-full">
-        <thead className="bg-slate-50">
+        <thead className="bg-stone-50">
           <tr>
             <th className={th}>Mã</th>
             <th className={th}>Tên nguyên liệu</th>
             <th className={th}>Đơn vị tính</th>
-            <th className={th}>Trạng thái</th>
-            <th className={th}>Thao tác</th>
+            <th className={th}>Hoạt động</th>
+            <th className={th + " text-right"}>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {ingredients.length === 0 && (
-            <tr><td className={td + ' text-center text-slate-400'} colSpan={5}>Không tìm thấy nguyên liệu nào phù hợp với từ khóa.</td></tr>
+            <tr><td className={td + ' text-center text-stone-400'} colSpan={5}>Không tìm thấy nguyên liệu nào phù hợp với từ khóa.</td></tr>
           )}
           {ingredients.map((nl) => {
             const active = nl.trang_thai === 'Hoat_dong';
             return (
-              <tr key={nl.ma_nguyen_lieu} className="hover:bg-slate-50">
+              <tr key={nl.ma_nguyen_lieu} className="hover:bg-stone-50">
                 <td className={td}>{nl.ma_nguyen_lieu}</td>
-                <td className={td + ' font-medium text-slate-800'}>{nl.ten_nguyen_lieu}</td>
+                <td className={td + ' font-medium text-stone-800'}>{nl.ten_nguyen_lieu}</td>
                 <td className={td}>{nl.ten_don_vi_tinh}</td>
                 <td className={td}>
-                  <span className={'px-2 py-1 rounded-full text-xs font-medium ' +
-                    (active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>
-                    {active ? 'Hoạt động' : 'Ngừng sử dụng'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <ToggleSwitch
+                      checked={active}
+                      onChange={() => onToggleStatus(nl)}
+                      title={
+                        active
+                          ? "Hoạt động — bấm để ngừng sử dụng"
+                          : "Ngừng sử dụng — bấm để kích hoạt lại"
+                      }
+                      onLabel="Hoạt động"
+                      offLabel="Ngừng sử dụng"
+                    />
+                    <span
+                      className={
+                        "text-xs font-medium " +
+                        (active ? "text-blue-700" : "text-stone-400")
+                      }
+                    >
+                      {active ? "Hoạt động" : "Ngừng sử dụng"}
+                    </span>
+                  </div>
                 </td>
-                <td className={td + ' whitespace-nowrap'}>
-                  <button onClick={() => onEdit(nl)} className="text-slate-600 hover:text-slate-900 mr-3 text-sm">Sửa</button>
-                  <button onClick={() => onToggleStatus(nl)} className="text-slate-600 hover:text-slate-900 mr-3 text-sm">
-                    {active ? 'Ngừng SD' : 'Kích hoạt'}
-                  </button>
-                  <button onClick={() => onDelete(nl.ma_nguyen_lieu)} className="text-red-500 hover:text-red-700 text-sm">Xóa</button>
+                <td className={td + ' whitespace-nowrap text-right'}>
+                  <button onClick={() => onEdit(nl)} className="text-stone-600 hover:text-stone-900 mr-3 text-sm">Sửa</button>
+                  <button onClick={() => onDelete(nl)} className="text-red-500 hover:text-red-700 text-sm">Xóa</button>
                 </td>
               </tr>
             );

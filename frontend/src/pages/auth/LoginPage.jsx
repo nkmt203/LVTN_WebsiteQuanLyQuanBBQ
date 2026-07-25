@@ -99,7 +99,7 @@ function LoginPage() {
 
         <div className="relative flex items-center gap-2">
           <FlameIcon className="h-8 w-8 text-orange-500" />
-          <span className="text-lg font-semibold tracking-wide">Lửa Hồng BBQ</span>
+          <span className="text-lg font-semibold tracking-wide">MeatOSync</span>
         </div>
 
         <div className="relative">
@@ -113,7 +113,7 @@ function LoginPage() {
         </div>
 
         <p className="relative text-xs text-stone-400">
-          © {new Date().getFullYear()} Lửa Hồng BBQ · Hệ thống quản lý nhà hàng
+          © {new Date().getFullYear()} MeatOSync · Hệ thống quản lý nhà hàng
         </p>
       </div>
 

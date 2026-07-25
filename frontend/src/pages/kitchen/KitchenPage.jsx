@@ -3,6 +3,7 @@ import { io as ioClient } from 'socket.io-client';
 import { getPendingOrders, completeOrderItem, acknowledgeCancellation } from '../../api/kitchenApi';
 import { getErrorMessage } from '../../api/errorHandler';
 import { SERVER_URL } from '../../api/apiConfig';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 
 const POLL_INTERVAL_MS = 5000; // Auto refresh 5 giây (dự phòng, phòng khi socket mất kết nối)
 
@@ -18,8 +19,10 @@ const KITCHEN_EVENTS = [
 function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [confirmState, setConfirmState] = useState(null);
+  // { title, description, confirmText, onConfirm }
   const timerRef = useRef(null);
 
   // ===== LOAD =====
@@ -29,7 +32,7 @@ function KitchenPage() {
       setOrders(data);
       setLastRefresh(new Date());
     } catch (err) {
-      setMessage('❌ ' + getErrorMessage(err));
+      setFeedback({ type: 'error', text: getErrorMessage(err) });
     }
   };
 
@@ -52,35 +55,39 @@ function KitchenPage() {
   }, []);
 
   // ===== HOÀN THÀNH MÓN (kèm cảnh báo trừ kho) =====
-  const handleComplete = async (item) => {
-    if (!window.confirm(`Xác nhận hoàn thành "${item.ten_mon_an}" bàn ${item.ten_ban}?`)) return;
-    try {
-      const r = await completeOrderItem(item.ma_chi_tiet_hd);
+  const handleComplete = (item) => {
+    setConfirmState({
+      title: 'Hoàn thành món',
+      description: `Xác nhận hoàn thành "${item.ten_mon_an}" tại ${item.ten_ban}?`,
+      confirmText: 'Hoàn thành',
+      onConfirm: async () => {
+        const r = await completeOrderItem(item.ma_chi_tiet_hd);
 
-      let msg = '✅ ' + r.message;
-      if (r.canh_bao_thieu?.length > 0) {
-        msg += `\n⚠️ Kho thiếu: ${r.canh_bao_thieu.join(', ')}`;
-      }
-      if (r.canh_bao_ton_thap?.length > 0) {
-        msg += `\n⚠️ Sắp hết: ${r.canh_bao_ton_thap.join(', ')}`;
-      }
-      setMessage(msg);
-      await loadOrders();
-    } catch (err) {
-      setMessage('❌ ' + getErrorMessage(err));
-    }
+        let text = r.message;
+        if (r.canh_bao_thieu?.length > 0) {
+          text += `\n⚠️ Kho thiếu: ${r.canh_bao_thieu.join(', ')}`;
+        }
+        if (r.canh_bao_ton_thap?.length > 0) {
+          text += `\n⚠️ Sắp hết: ${r.canh_bao_ton_thap.join(', ')}`;
+        }
+        setFeedback({ type: 'success', text });
+        await loadOrders();
+      },
+    });
   };
 
   // ===== TIẾP NHẬN YÊU CẦU HỦY =====
-  const handleAcknowledgeCancel = async (item) => {
-    if (!window.confirm(`Đã dừng chế biến "${item.ten_mon_an}" bàn ${item.ten_ban}?`)) return;
-    try {
-      const r = await acknowledgeCancellation(item.ma_chi_tiet_hd);
-      setMessage('✅ ' + r.message);
-      await loadOrders();
-    } catch (err) {
-      setMessage('❌ ' + getErrorMessage(err));
-    }
+  const handleAcknowledgeCancel = (item) => {
+    setConfirmState({
+      title: 'Tiếp nhận yêu cầu hủy',
+      description: `Đã dừng chế biến "${item.ten_mon_an}" tại ${item.ten_ban}?`,
+      confirmText: 'Đã dừng chế biến',
+      onConfirm: async () => {
+        const r = await acknowledgeCancellation(item.ma_chi_tiet_hd);
+        setFeedback({ type: 'success', text: r.message });
+        await loadOrders();
+      },
+    });
   };
 
   // ===== NHÓM ORDER THEO BÀN =====
@@ -113,7 +120,7 @@ function KitchenPage() {
   // -> bill đã xong hết món (mọi món đều hoàn thành/hủy đã tiếp nhận) sẽ tự ẩn khỏi lưới chính
   const activeTables = tables.filter((t) => t.items.some((i) => !isItemFinal(i)));
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-stone-500 p-4">Đang tải...</p>;
 
   return (
     <div>
@@ -124,24 +131,24 @@ function KitchenPage() {
         onRefresh={loadOrders}
       />
 
-      {message && (
+      {feedback && (
         <div
           className={
             'mb-4 px-4 py-2 rounded-lg border text-sm whitespace-pre-line shadow-sm ' +
-            (message.startsWith('❌')
+            (feedback.type === 'error'
               ? 'bg-red-50 border-red-200 text-red-700'
               : 'bg-emerald-50 border-emerald-200 text-emerald-700')
           }
         >
-          {message}
+          {feedback.text}
         </div>
       )}
 
       {activeTables.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center border border-slate-200 shadow-sm">
+        <div className="bg-white rounded-xl p-12 text-center border border-stone-200 shadow-sm">
           <div className="text-6xl mb-4">🎉</div>
-          <p className="text-slate-700 text-lg font-medium">Không có món nào chờ chế biến</p>
-          <p className="text-slate-400 text-sm mt-2">
+          <p className="text-stone-700 text-lg font-medium">Không có món nào chờ chế biến</p>
+          <p className="text-stone-400 text-sm mt-2">
             Bếp đang rảnh. Trang tự làm mới mỗi {POLL_INTERVAL_MS / 1000} giây.
           </p>
         </div>
@@ -157,6 +164,18 @@ function KitchenPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmState}
+        title={confirmState?.title}
+        description={confirmState?.description}
+        confirmText={confirmState?.confirmText}
+        onConfirm={async () => {
+          await confirmState.onConfirm();
+          setConfirmState(null);
+        }}
+        onClose={() => setConfirmState(null)}
+      />
     </div>
   );
 }
@@ -168,18 +187,18 @@ function KitchenPage() {
 const KitchenHeader = ({ totalTables, totalItems, lastRefresh, onRefresh }) => (
   <div className="flex items-center justify-between mb-5">
     <div>
-      <h2 className="text-xl font-bold text-slate-800">Đơn chờ chế biến</h2>
-      <p className="text-sm text-slate-500 mt-0.5">
+      <h2 className="text-xl font-bold text-stone-800">Đơn chờ chế biến</h2>
+      <p className="text-sm text-stone-500 mt-0.5">
         {totalTables} bàn • {totalItems} món cần xử lý
       </p>
     </div>
     <div className="flex items-center gap-3">
-      <span className="text-xs text-slate-400">
+      <span className="text-xs text-stone-400">
         Cập nhật lúc: {lastRefresh.toLocaleTimeString('vi-VN')}
       </span>
       <button
         onClick={onRefresh}
-        className="text-sm text-orange-600 border border-orange-300 hover:bg-orange-50 px-3 py-1.5 rounded-lg bg-white"
+        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg bg-white"
       >
         ↻ Làm mới
       </button>
@@ -218,12 +237,12 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
   ).length;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-slate-50 border-b border-slate-200 px-3 py-2 flex justify-between items-center gap-2">
+      <div className="bg-stone-50 border-b border-stone-200 px-3 py-2 flex justify-between items-center gap-2">
         <div className="min-w-0">
-          <div className="font-bold text-slate-800 text-sm truncate">{table.ten_ban}</div>
-          <div className="text-xs text-slate-500 truncate">{table.ten_khu_vuc}</div>
+          <div className="font-bold text-stone-800 text-sm truncate">{table.ten_ban}</div>
+          <div className="text-xs text-stone-500 truncate">{table.ten_khu_vuc}</div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {cancelPendingCount > 0 && (
@@ -256,7 +275,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
             </div>
           )}
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+            <thead className="bg-stone-50 text-stone-500 text-xs uppercase">
               <tr>
                 <th className="px-2 py-1.5 text-center w-10">SL</th>
                 <th className="px-2 py-1.5 text-left">Món</th>
@@ -297,12 +316,12 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
         <td className="px-2 py-2 text-center text-red-600 font-bold line-through">
           {item.so_luong}
         </td>
-        <td className="px-2 py-2 text-slate-800">
+        <td className="px-2 py-2 text-stone-800">
           <div className="text-red-600 text-xs font-bold mb-0.5">🚫 YÊU CẦU HỦY</div>
           <div className="line-through opacity-80">{item.ten_mon_an}</div>
         </td>
         <td className="px-2 py-2 text-xs text-red-600">
-          {lyDoHuy || <span className="text-slate-400 italic">—</span>}
+          {lyDoHuy || <span className="text-stone-400 italic">—</span>}
         </td>
         <td className="px-2 py-2 text-center">
           <button
@@ -320,14 +339,14 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
   // ===== MÓN HOÀN THÀNH (xanh, gạch ngang) =====
   if (isDone) {
     return (
-      <tr className="border-t border-slate-100 bg-emerald-50/40">
+      <tr className="border-t border-stone-100 bg-emerald-50/40">
         <td className="px-2 py-2 text-center text-emerald-600 line-through">
           {item.so_luong}
         </td>
-        <td className="px-2 py-2 text-slate-400 line-through decoration-emerald-400 decoration-2">
+        <td className="px-2 py-2 text-stone-400 line-through decoration-emerald-400 decoration-2">
           {item.ten_mon_an}
         </td>
-        <td className="px-2 py-2 text-xs text-slate-400 italic line-through">
+        <td className="px-2 py-2 text-xs text-stone-400 italic line-through">
           {ghiChuHienThi || '—'}
         </td>
         <td className="px-2 py-2 text-center">
@@ -343,19 +362,19 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
   const waitCls =
     item.phut_da_cho >= 15 ? 'text-red-600 font-semibold' :
     item.phut_da_cho >= 10 ? 'text-amber-600' :
-    'text-slate-400';
+    'text-stone-400';
 
   return (
-    <tr className="border-t border-slate-100 hover:bg-orange-50/50">
+    <tr className="border-t border-stone-100 hover:bg-orange-50/50">
       <td className="px-2 py-2 text-center text-orange-600 font-bold">
         {item.so_luong}
       </td>
-      <td className="px-2 py-2 text-slate-800">
+      <td className="px-2 py-2 text-stone-800">
         <div>{item.ten_mon_an}</div>
         <div className={`text-xs ${waitCls}`}>⏱ {item.phut_da_cho}p</div>
       </td>
-      <td className="px-2 py-2 text-xs text-slate-500 italic">
-        {ghiChuHienThi || <span className="text-slate-400 not-italic">—</span>}
+      <td className="px-2 py-2 text-xs text-stone-500 italic">
+        {ghiChuHienThi || <span className="text-stone-400 not-italic">—</span>}
       </td>
       <td className="px-2 py-2 text-center">
         <button
