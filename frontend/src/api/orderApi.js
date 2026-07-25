@@ -15,6 +15,13 @@ export const cancelOrderItem = (id, ly_do_huy) =>
     .delete(`/orders/${id}`, { data: { ly_do_huy } })
     .then((r) => r.data);
 
+// Xác nhận / từ chối món khách gọi qua QR (đang "Chờ xác nhận")
+export const confirmOrderItem = (id) =>
+  axiosClient.patch(`/orders/${id}/confirm`).then((r) => r.data);
+
+export const rejectOrderItem = (id) =>
+  axiosClient.patch(`/orders/${id}/reject`).then((r) => r.data);
+
 export const requestPayment = (billId) =>
   axiosClient
     .post(`/orders/bills/${billId}/request-payment`)

@@ -36,6 +36,20 @@ router.delete(
   c.cancelOrderItem,
 );
 
+router.patch(
+  "/:id/confirm",
+  authorize("Phuc_vu", "Admin"),
+  requireProfile,
+  c.confirmOrderItem,
+);
+
+router.patch(
+  "/:id/reject",
+  authorize("Phuc_vu", "Admin"),
+  requireProfile,
+  c.rejectOrderItem,
+);
+
 router.post('/bills/:id/request-payment',
   authorize('Phuc_vu', 'Admin'),
   requireProfile,

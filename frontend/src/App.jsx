@@ -33,6 +33,9 @@ import KitchenPage from "./pages/kitchen/KitchenPage";
 import CashierLayout from "./layouts/CashierLayout";
 import CashierPage from "./pages/cashier/CashierPage";
 
+// Khách hàng quét QR (công khai, không cần đăng nhập)
+import QrOrderPage from "./pages/qr/QrOrderPage";
+
 function App() {
   return (
     <AuthProvider>
@@ -41,6 +44,9 @@ function App() {
           {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/select-profile" element={<SelectProfilePage />} />
+
+          {/* Khách hàng quét QR tại bàn — công khai, không qua ProtectedRoute */}
+          <Route path="/qr/:qrCode" element={<QrOrderPage />} />
 
           {/* Khu vực Admin */}
           <Route

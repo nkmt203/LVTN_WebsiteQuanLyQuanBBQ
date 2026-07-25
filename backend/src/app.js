@@ -17,6 +17,7 @@ const supplierRoutes = require("./routes/supplier.routes");
 const warehouseRoutes = require("./routes/warehouse.routes");
 const employeeRoutes = require("./routes/employee.routes");
 const reportRoutes = require("./routes/report.routes");
+const qrOrderRoutes = require("./routes/qrOrder.routes");
 
 const app = express();
 
@@ -42,4 +43,5 @@ app.use("/api/suppliers", supplierRoutes);
 app.use("/api/warehouse", warehouseRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/qr", qrOrderRoutes);
 module.exports = app;
