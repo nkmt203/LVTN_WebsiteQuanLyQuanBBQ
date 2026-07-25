@@ -1,6 +1,14 @@
 const pool = require("../config/db");
 const bus = require("../events/socketBus");
 
+// Thời gian ân hạn sau khi NV bấm "Xác nhận" món gọi qua QR (nghiệp vụ 2.3.1.11.a
+// Bước 6): trong 15s này khách/NV vẫn có thể hủy — DB vẫn giữ "Cho_xac_nhan" nên
+// endpoint hủy hiện có (cancelOrderItem / QR self-cancel) tự động áp dụng được,
+// không cần thêm trạng thái DB mới. Hết 15s không bị hủy -> tự chuyển
+// "Dang_che_bien", gán ma_nv_xac_nhan, báo bếp.
+const GRACE_MS = 15000;
+const graceTimers = new Map(); // ma_chi_tiet_hd -> Timeout, dùng để hủy được giữa chừng
+
 // Cập nhật tổng tiền hoá đơn (bỏ qua món đã hủy)
 const updateBillTotal = async (conn, maHoaDon) => {
   const [sumRows] = await conn.query(
@@ -355,6 +363,128 @@ const cancelOrderItem = async (req, res) => {
   }
 };
 
+// PATCH /api/orders/:id/confirm — NV xác nhận món khách gọi qua QR (nghiệp vụ
+// 2.3.1.11.a Bước 6). Không đổi trạng thái ngay — chỉ đặt hẹn giờ GRACE_MS,
+// hết giờ mới thật sự chuyển "Dang_che_bien" nếu không ai hủy giữa chừng.
+const confirmOrderItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ma_nhan_vien = req.user.ma_nhan_vien;
+
+    const [rows] = await pool.query(
+      `SELECT ct.trang_thai, ct.ma_hoa_don, ct.ma_mon_an, ct.so_luong, ct.ghi_chu,
+              m.ten_mon_an, hd.ma_ban, b.ten_ban
+       FROM CHI_TIET_HOA_DON ct
+       JOIN MON_AN m ON ct.ma_mon_an = m.ma_mon_an
+       JOIN HOA_DON hd ON ct.ma_hoa_don = hd.ma_hoa_don
+       JOIN BAN b ON hd.ma_ban = b.ma_ban
+       WHERE ct.ma_chi_tiet_hd = ?`,
+      [id],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy dòng món" });
+    }
+    const cur = rows[0];
+    if (cur.trang_thai !== "Cho_xac_nhan") {
+      return res
+        .status(409)
+        .json({ message: "Món này không ở trạng thái chờ xác nhận" });
+    }
+    if (graceTimers.has(Number(id))) {
+      return res.json({ message: "Đã xác nhận trước đó, đang chờ hết thời gian ân hạn" });
+    }
+
+    const timer = setTimeout(async () => {
+      graceTimers.delete(Number(id));
+      try {
+        const [check] = await pool.query(
+          `SELECT trang_thai FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd = ?`,
+          [id],
+        );
+        // Đã bị hủy (khách hoặc NV) trong lúc chờ -> không làm gì thêm
+        if (check.length === 0 || check[0].trang_thai !== "Cho_xac_nhan") return;
+
+        await pool.query(
+          `UPDATE CHI_TIET_HOA_DON SET trang_thai = 'Dang_che_bien', ma_nv_xac_nhan = ?,
+           thoi_gian_xac_nhan = NOW() WHERE ma_chi_tiet_hd = ?`,
+          [ma_nhan_vien, id],
+        );
+
+        bus.emit("kitchen:new-batch", {
+          ma_hoa_don: cur.ma_hoa_don,
+          ma_ban: cur.ma_ban,
+          ten_ban: cur.ten_ban,
+          items: [
+            {
+              ma_chi_tiet_hd: Number(id),
+              ten_mon_an: cur.ten_mon_an,
+              so_luong: cur.so_luong,
+              ghi_chu: cur.ghi_chu,
+            },
+          ],
+        });
+        bus.emit("qr:order-confirmed", {
+          ma_ban: cur.ma_ban,
+          ma_chi_tiet_hd: Number(id),
+        });
+      } catch (e) {
+        console.error("Lỗi hẹn giờ confirmOrderItem:", e.message);
+      }
+    }, GRACE_MS);
+    graceTimers.set(Number(id), timer);
+
+    res.json({
+      message: `Đã xác nhận, món sẽ được gửi bếp sau ${GRACE_MS / 1000}s`,
+      grace_ms: GRACE_MS,
+    });
+  } catch (err) {
+    console.error("Lỗi confirmOrderItem:", err.message);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+// PATCH /api/orders/:id/reject — NV từ chối món khách gọi qua QR (nghiệp vụ
+// 2.3.1.11.a Bước 6, nhánh từ chối) — xóa hẳn yêu cầu, không cần lý do vì
+// khách chưa từng thấy món này được xác nhận.
+const rejectOrderItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.query(
+      `SELECT ct.trang_thai, hd.ma_ban, m.ten_mon_an
+       FROM CHI_TIET_HOA_DON ct
+       JOIN HOA_DON hd ON ct.ma_hoa_don = hd.ma_hoa_don
+       JOIN MON_AN m ON ct.ma_mon_an = m.ma_mon_an
+       WHERE ct.ma_chi_tiet_hd = ?`,
+      [id],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy dòng món" });
+    }
+    if (rows[0].trang_thai !== "Cho_xac_nhan") {
+      return res
+        .status(409)
+        .json({ message: "Món này không ở trạng thái chờ xác nhận" });
+    }
+
+    if (graceTimers.has(Number(id))) {
+      clearTimeout(graceTimers.get(Number(id)));
+      graceTimers.delete(Number(id));
+    }
+    await pool.query(`DELETE FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd = ?`, [id]);
+
+    bus.emit("qr:order-rejected", {
+      ma_ban: rows[0].ma_ban,
+      ma_chi_tiet_hd: Number(id),
+      ten_mon_an: rows[0].ten_mon_an,
+    });
+
+    res.json({ message: "Đã từ chối yêu cầu gọi món" });
+  } catch (err) {
+    console.error("Lỗi rejectOrderItem:", err.message);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
 // POST /api/orders/bills/:id/request-payment — phục vụ yêu cầu thu ngân xử lý
 const requestPayment = async (req, res) => {
   const conn = await pool.getConnection();
@@ -430,6 +560,8 @@ module.exports = {
   addOrderItems,
   updateOrderItem,
   cancelOrderItem,
+  confirmOrderItem,
+  rejectOrderItem,
   requestPayment,
   updateBillTotal,
 };

@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { io as ioClient } from "socket.io-client";
 import {
   getBillByTable,
   submitOrderBatch,
   updateOrderItem,
   cancelOrderItem,
+  confirmOrderItem,
+  rejectOrderItem,
   requestPayment,
 } from "../../api/orderApi";
 import { cancelTable, getTablesMap, transferTable } from "../../api/serviceApi";
@@ -83,6 +86,15 @@ function OrderPage() {
 
     timerRef.current = setInterval(loadBill, POLL_INTERVAL_MS);
     return () => clearInterval(timerRef.current);
+  }, [tableId]);
+
+  // ===== SOCKET: tải lại ngay khi khách gửi yêu cầu gọi món qua QR =====
+  useEffect(() => {
+    const socket = ioClient(SERVER_URL);
+    socket.on("qr:new-request", (p) => {
+      if (String(p.ma_ban) === String(tableId)) loadBill();
+    });
+    return () => socket.disconnect();
   }, [tableId]);
 
   /// Menu đã lọc theo danh mục (không cần tìm kiếm nữa)
@@ -202,6 +214,28 @@ function OrderPage() {
         }
         return;
       }
+      setMessage("❌ " + getErrorMessage(err));
+    }
+  };
+
+  // ===== XÁC NHẬN / TỪ CHỐI MÓN KHÁCH GỌI QUA QR (Chờ xác nhận) =====
+  const handleConfirmQrItem = async (item) => {
+    try {
+      const r = await confirmOrderItem(item.ma_chi_tiet_hd);
+      setMessage("✅ " + r.message);
+      await loadBill();
+    } catch (err) {
+      setMessage("❌ " + getErrorMessage(err));
+    }
+  };
+
+  const handleRejectQrItem = async (item) => {
+    if (!window.confirm(`Từ chối món "${item.ten_mon_an}" khách vừa gọi?`)) return;
+    try {
+      const r = await rejectOrderItem(item.ma_chi_tiet_hd);
+      setMessage("✅ " + r.message);
+      await loadBill();
+    } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
   };
@@ -454,6 +488,8 @@ function OrderPage() {
                     item={item}
                     onUpdateQty={handleUpdateSentQty}
                     onCancel={openCancelModal}
+                    onConfirmQr={handleConfirmQrItem}
+                    onRejectQr={handleRejectQrItem}
                   />
                 ))
               )}
@@ -642,9 +678,10 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
 );
 
 // Dòng món đã gửi bếp (từ DB) — gọn 1 hàng chính, thêm hàng phụ nếu có ghi chú/NV xác nhận
-const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
+const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) => {
   const isCancelled = item.trang_thai === "Da_huy";
-  const canEdit = !["Da_hoan_thanh", "Da_huy"].includes(item.trang_thai);
+  const isPendingQr = item.trang_thai === "Cho_xac_nhan";
+  const canEdit = !["Da_hoan_thanh", "Da_huy", "Cho_xac_nhan"].includes(item.trang_thai);
   const status = ITEM_STATUS[item.trang_thai] || {
     cls: "",
     text: item.trang_thai,
@@ -655,7 +692,11 @@ const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
     <div
       className={
         "border rounded-lg px-2 py-1.5 " +
-        (isCancelled ? "opacity-50 border-slate-200" : "border-slate-200")
+        (isCancelled
+          ? "opacity-50 border-slate-200"
+          : isPendingQr
+            ? "border-amber-300 bg-amber-50/60"
+            : "border-slate-200")
       }
     >
       <div className="flex items-center gap-1.5">
@@ -707,6 +748,24 @@ const SentItemCard = ({ item, onUpdateQty, onCancel }) => {
           </button>
         )}
       </div>
+
+      {isPendingQr && (
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className="text-[10px] text-amber-700 flex-1">📱 Khách gọi qua QR — cần xác nhận</span>
+          <button
+            onClick={() => onRejectQr(item)}
+            className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50"
+          >
+            Từ chối
+          </button>
+          <button
+            onClick={() => onConfirmQr(item)}
+            className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            Xác nhận
+          </button>
+        </div>
+      )}
 
       {hasExtra && (
         <div className="text-xs text-slate-400 italic mt-0.5 truncate">
