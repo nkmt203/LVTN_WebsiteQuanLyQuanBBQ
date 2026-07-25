@@ -5,13 +5,13 @@ const TON_STYLE = {
 };
 
 function InventoryTable({ items, onEditMinStock }) {
-  const th = 'text-left text-xs font-semibold text-slate-500 uppercase px-4 py-3';
-  const td = 'px-4 py-3 text-sm text-slate-700 border-t border-slate-100';
+  const th = 'text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3';
+  const td = 'px-4 py-3 text-sm text-stone-700 border-t border-stone-100';
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
       <table className="w-full">
-        <thead className="bg-slate-50">
+        <thead className="bg-stone-50">
           <tr>
             <th className={th}>Mã</th>
             <th className={th}>Nguyên liệu</th>
@@ -19,13 +19,13 @@ function InventoryTable({ items, onEditMinStock }) {
             <th className={th}>Mức tối thiểu</th>
             <th className={th}>ĐVT</th>
             <th className={th}>Trạng thái</th>
-            <th className={th}>Thao tác</th>
+            <th className={th + " text-right"}>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 && (
             <tr>
-              <td className={td + ' text-center text-slate-400'} colSpan={7}>
+              <td className={td + ' text-center text-stone-400'} colSpan={7}>
                 Không tìm thấy dữ liệu tồn kho phù hợp.
               </td>
             </tr>
@@ -33,9 +33,9 @@ function InventoryTable({ items, onEditMinStock }) {
           {items.map((nl) => {
             const style = TON_STYLE[nl.trang_thai_ton] || TON_STYLE.Het_hang;
             return (
-              <tr key={nl.ma_nguyen_lieu} className="hover:bg-slate-50">
+              <tr key={nl.ma_nguyen_lieu} className="hover:bg-stone-50">
                 <td className={td}>{nl.ma_nguyen_lieu}</td>
-                <td className={td + ' font-medium text-slate-800'}>{nl.ten_nguyen_lieu}</td>
+                <td className={td + ' font-medium text-stone-800'}>{nl.ten_nguyen_lieu}</td>
                 <td className={td}>{Number(nl.so_luong_ton)}</td>
                 <td className={td}>{Number(nl.muc_ton_toi_thieu)}</td>
                 <td className={td}>{nl.ten_don_vi_tinh}</td>
@@ -44,8 +44,8 @@ function InventoryTable({ items, onEditMinStock }) {
                     {style.label}
                   </span>
                 </td>
-                <td className={td + ' whitespace-nowrap'}>
-                  <button onClick={() => onEditMinStock(nl)} className="text-slate-600 hover:text-slate-900 text-sm">
+                <td className={td + ' whitespace-nowrap text-right'}>
+                  <button onClick={() => onEditMinStock(nl)} className="text-stone-600 hover:text-stone-900 text-sm">
                     Đặt mức tối thiểu
                   </button>
                 </td>

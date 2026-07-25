@@ -1,8 +1,8 @@
 function EmployeeFilterBar({ keyword, setKeyword, maTaiKhoan, setMaTaiKhoan, trangThai, setTrangThai, accounts, onSearch, onReset }) {
-  const inp = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300';
+  const inp = 'border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400';
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+    <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
       <input
         className={inp + ' flex-1 min-w-[180px]'}
         placeholder="Tìm theo họ tên, số điện thoại hoặc mã nhân viên"
@@ -21,8 +21,8 @@ function EmployeeFilterBar({ keyword, setKeyword, maTaiKhoan, setMaTaiKhoan, tra
         <option value="Hoat_dong">Hoạt động</option>
         <option value="Ngung_hoat_dong">Ngừng hoạt động</option>
       </select>
-      <button onClick={onSearch} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900">Tìm</button>
-      <button onClick={onReset} className="text-slate-500 text-sm hover:text-slate-700 px-2">Xóa lọc</button>
+      <button onClick={onSearch} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Tìm</button>
+      <button onClick={onReset} className="text-stone-500 text-sm hover:text-stone-700 px-2">Xóa lọc</button>
     </div>
   );
 }

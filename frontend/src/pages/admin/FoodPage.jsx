@@ -12,6 +12,7 @@ import FoodTable from "../../components/food/FoodTable";
 import FoodFilterBar from "../../components/food/FoodFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 import { getErrorMessage } from "../../api/errorHandler";
 const PER_PAGE = 10;
@@ -40,6 +41,16 @@ function FoodPage() {
   const [giaBan, setGiaBan] = useState("");
   const [moTa, setMoTa] = useState("");
   const [imageFile, setImageFile] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState(null);
+
+  // Xoá món (popup xác nhận)
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Đổi trạng thái kinh doanh (popup xác nhận)
+  const [toggleTarget, setToggleTarget] = useState(null);
+
+  // Cập nhật món (popup xác nhận)
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
 
   // === TẢI DỮ LIỆU ===
   async function loadFoods(opts = {}) {
@@ -102,6 +113,7 @@ function FoodPage() {
     setGiaBan("");
     setMoTa("");
     setImageFile(null);
+    setExistingImageUrl(null);
     const el = document.getElementById("food-image-input");
     if (el) el.value = "";
   }
@@ -123,27 +135,27 @@ function FoodPage() {
     setGiaBan(String(mon.gia_ban));
     setMoTa(mon.mo_ta || "");
     setImageFile(null);
+    setExistingImageUrl(mon.hinh_anh_url || null);
     const el = document.getElementById("food-image-input");
     if (el) el.value = "";
     setFormOpen(true);
   }
 
-  async function handleSave() {
+  function buildFoodFormData() {
     const fd = new FormData();
     fd.append("ten_mon_an", tenMon);
     fd.append("ma_danh_muc", maDanhMuc);
     fd.append("gia_ban", giaBan);
     fd.append("mo_ta", moTa);
     if (imageFile) fd.append("hinh_anh", imageFile);
+    return fd;
+  }
 
+  // Thêm mới: lưu trực tiếp, không cần popup xác nhận
+  async function doCreate() {
     try {
-      if (editingId === null) {
-        const r = await createFood(fd);
-        setMessage("✅ " + r.message);
-      } else {
-        const r = await updateFood(editingId, fd);
-        setMessage("✅ " + r.message);
-      }
+      const r = await createFood(buildFoodFormData());
+      setMessage("✅ " + r.message);
       closeForm();
       await loadFoods();
     } catch (err) {
@@ -151,53 +163,82 @@ function FoodPage() {
     }
   }
 
-  // === ĐỔI TRẠNG THÁI ===
-  async function handleToggleStatus(mon) {
-    const next =
-      mon.trang_thai === "Dang_kinh_doanh" ? "Tam_ngung" : "Dang_kinh_doanh";
-    try {
-      const r = await updateFoodStatus(mon.ma_mon_an, next);
-      setMessage("✅ " + r.message);
-      await loadFoods();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
+  // Cập nhật: qua popup xác nhận, lỗi hiện ngay trong popup
+  async function doUpdate() {
+    const r = await updateFood(editingId, buildFoodFormData());
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    closeForm();
+    await loadFoods();
+  }
+
+  function requestSave() {
+    if (editingId === null) {
+      doCreate();
+    } else {
+      setConfirmUpdateOpen(true);
     }
   }
 
-  // === XÓA ===
-  async function handleDelete(id) {
-    if (!window.confirm("Xác nhận xóa món này?")) return;
-    try {
-      const r = await deleteFood(id);
-      setMessage("✅ " + r.message);
-      await loadFoods();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  // === ĐỔI TRẠNG THÁI (popup xác nhận, lỗi hiện ngay trong popup) ===
+  function askToggleStatus(mon) {
+    setToggleTarget(mon);
+  }
+
+  async function confirmToggleStatus() {
+    const next =
+      toggleTarget.trang_thai === "Dang_kinh_doanh"
+        ? "Tam_ngung"
+        : "Dang_kinh_doanh";
+    const r = await updateFoodStatus(toggleTarget.ma_mon_an, next);
+    setMessage("✅ " + r.message);
+    setToggleTarget(null);
+    await loadFoods();
+  }
+
+  // === XÓA (popup xác nhận, lỗi hiện ngay trong popup) ===
+  function askDelete(mon) {
+    setDeleteTarget(mon);
+  }
+
+  async function confirmDelete() {
+    const r = await deleteFood(deleteTarget.ma_mon_an);
+    setMessage("✅ " + r.message);
+    setDeleteTarget(null);
+    await loadFoods();
   }
 
   // === RENDER ===
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Món ăn</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h2 className="text-xl font-bold text-stone-800">Quản lý Món ăn</h2>
+          <p className="text-sm text-stone-500 mt-0.5">
             Thêm, sửa, đổi trạng thái và xóa món trong thực đơn.
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thêm món
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -217,8 +258,8 @@ function FoodPage() {
       <FoodTable
         foods={foods}
         onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggleStatus={handleToggleStatus}
+        onDelete={askDelete}
+        onToggleStatus={askToggleStatus}
       />
 
       <Pagination
@@ -232,6 +273,7 @@ function FoodPage() {
         open={formOpen}
         onClose={closeForm}
         title={editingId === null ? "Thêm món mới" : `Sửa món #${editingId}`}
+        maxWidth="max-w-2xl"
       >
         <FoodForm
           editingId={editingId}
@@ -245,11 +287,54 @@ function FoodPage() {
           setMoTa={setMoTa}
           imageFile={imageFile}
           setImageFile={setImageFile}
+          existingImageUrl={existingImageUrl}
           categories={categories}
-          onSave={handleSave}
+          onSave={requestSave}
           onCancel={closeForm}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa món ăn"
+        description={
+          deleteTarget &&
+          `Xác nhận xóa món "${deleteTarget.ten_mon_an}"? Hành động này không thể hoàn tác.`
+        }
+        confirmText="Xóa"
+        danger
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        title={
+          toggleTarget?.trang_thai === "Dang_kinh_doanh"
+            ? "Tạm ngừng kinh doanh"
+            : "Mở bán lại"
+        }
+        description={
+          toggleTarget &&
+          (toggleTarget.trang_thai === "Dang_kinh_doanh"
+            ? `Tạm ngừng kinh doanh món "${toggleTarget.ten_mon_an}"? Món sẽ ẩn khỏi giao diện gọi món.`
+            : `Mở bán lại món "${toggleTarget.ten_mon_an}"? Món sẽ hiển thị lại trên giao diện gọi món.`)
+        }
+        confirmText={
+          toggleTarget?.trang_thai === "Dang_kinh_doanh" ? "Tạm ngừng" : "Mở bán"
+        }
+        onConfirm={confirmToggleStatus}
+        onClose={() => setToggleTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật món ăn"
+        description={`Xác nhận lưu thay đổi cho món "${tenMon}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

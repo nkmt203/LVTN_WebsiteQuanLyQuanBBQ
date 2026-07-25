@@ -11,6 +11,7 @@ import CategoryTable from "../../components/category/CategoryTable";
 import CategoryFilterBar from "../../components/category/CategoryFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 import { getErrorMessage } from "../../api/errorHandler";
 
@@ -33,6 +34,11 @@ function CategoryPage() {
   const [tenDanhMuc, setTenDanhMuc] = useState("");
   const [moTa, setMoTa] = useState("");
 
+  // Popup xác nhận
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [confirmUpdateOpen, setConfirmUpdateOpen] = useState(false);
+
   async function loadData(opts = {}) {
     const p = opts.p ?? page;
     const kw = opts.keyword ?? keyword;
@@ -50,7 +56,6 @@ function CategoryPage() {
       setTotalPages(resp.totalPages || 1);
       setPage(resp.page || 1);
     } catch (err) {
-      // ...
       setMessage("❌ " + getErrorMessage(err));
     }
   }
@@ -96,16 +101,11 @@ function CategoryPage() {
     setFormOpen(true);
   }
 
-  async function handleSave() {
-    const payload = { ten_danh_muc: tenDanhMuc, mo_ta: moTa };
+  // Thêm mới: lưu trực tiếp
+  async function doCreate() {
     try {
-      if (editingId === null) {
-        const r = await createCategory(payload);
-        setMessage("✅ " + r.message);
-      } else {
-        const r = await updateCategory(editingId, payload);
-        setMessage("✅ " + r.message);
-      }
+      const r = await createCategory({ ten_danh_muc: tenDanhMuc, mo_ta: moTa });
+      setMessage("✅ " + r.message);
       closeForm();
       await loadData();
     } catch (err) {
@@ -113,50 +113,82 @@ function CategoryPage() {
     }
   }
 
-  async function handleToggleStatus(dm) {
+  // Cập nhật: qua popup xác nhận, lỗi hiện ngay trong popup
+  async function doUpdate() {
+    const r = await updateCategory(editingId, {
+      ten_danh_muc: tenDanhMuc,
+      mo_ta: moTa,
+    });
+    setMessage("✅ " + r.message);
+    setConfirmUpdateOpen(false);
+    closeForm();
+    await loadData();
+  }
+
+  function requestSave() {
+    if (editingId === null) {
+      doCreate();
+    } else {
+      setConfirmUpdateOpen(true);
+    }
+  }
+
+  // Đổi trạng thái (popup xác nhận)
+  function askToggleStatus(dm) {
+    setToggleTarget(dm);
+  }
+  async function confirmToggleStatus() {
     const next =
-      dm.trang_thai === "Dang_su_dung" ? "Ngung_su_dung" : "Dang_su_dung";
-    try {
-      const r = await updateCategoryStatus(dm.ma_danh_muc, next);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+      toggleTarget.trang_thai === "Dang_su_dung"
+        ? "Ngung_su_dung"
+        : "Dang_su_dung";
+    const r = await updateCategoryStatus(toggleTarget.ma_danh_muc, next);
+    setMessage("✅ " + r.message);
+    setToggleTarget(null);
+    await loadData();
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Xác nhận xóa danh mục này?")) return;
-    try {
-      const r = await deleteCategory(id);
-      setMessage("✅ " + r.message);
-      await loadData();
-    } catch (err) {
-      setMessage("❌ " + getErrorMessage(err));
-    }
+  // Xóa (popup xác nhận)
+  function askDelete(dm) {
+    setDeleteTarget(dm);
+  }
+  async function confirmDelete() {
+    const r = await deleteCategory(deleteTarget.ma_danh_muc);
+    setMessage("✅ " + r.message);
+    setDeleteTarget(null);
+    await loadData();
   }
 
-  if (loading) return <p className="text-slate-500 p-4">Đang tải...</p>;
+  if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
+
+  const isError = message.startsWith("❌");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Danh mục</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h2 className="text-xl font-bold text-stone-800">Quản lý Danh mục</h2>
+          <p className="text-sm text-stone-500 mt-0.5">
             Thêm, sửa, đổi trạng thái và xóa danh mục thực đơn.
           </p>
         </div>
         <button
           onClick={openAdd}
-          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-900"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
         >
           + Thêm danh mục
         </button>
       </div>
 
       {message && (
-        <div className="mb-4 px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700">
+        <div
+          className={
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (isError
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
+          }
+        >
           {message}
         </div>
       )}
@@ -173,8 +205,8 @@ function CategoryPage() {
       <CategoryTable
         categories={categories}
         onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggleStatus={handleToggleStatus}
+        onDelete={askDelete}
+        onToggleStatus={askToggleStatus}
       />
 
       <Pagination
@@ -199,10 +231,52 @@ function CategoryPage() {
           setTenDanhMuc={setTenDanhMuc}
           moTa={moTa}
           setMoTa={setMoTa}
-          onSave={handleSave}
+          onSave={requestSave}
           onCancel={closeForm}
         />
       </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Xóa danh mục"
+        description={
+          deleteTarget &&
+          `Xác nhận xóa danh mục "${deleteTarget.ten_danh_muc}"? Hành động này không thể hoàn tác.`
+        }
+        confirmText="Xóa"
+        danger
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        title={
+          toggleTarget?.trang_thai === "Dang_su_dung"
+            ? "Ngừng sử dụng danh mục"
+            : "Kích hoạt danh mục"
+        }
+        description={
+          toggleTarget &&
+          (toggleTarget.trang_thai === "Dang_su_dung"
+            ? `Ngừng sử dụng danh mục "${toggleTarget.ten_danh_muc}"?`
+            : `Kích hoạt lại danh mục "${toggleTarget.ten_danh_muc}"?`)
+        }
+        confirmText={
+          toggleTarget?.trang_thai === "Dang_su_dung" ? "Ngừng SD" : "Kích hoạt"
+        }
+        onConfirm={confirmToggleStatus}
+        onClose={() => setToggleTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmUpdateOpen}
+        title="Cập nhật danh mục"
+        description={`Xác nhận lưu thay đổi cho danh mục "${tenDanhMuc}"?`}
+        confirmText="Cập nhật"
+        onConfirm={doUpdate}
+        onClose={() => setConfirmUpdateOpen(false)}
+      />
     </div>
   );
 }

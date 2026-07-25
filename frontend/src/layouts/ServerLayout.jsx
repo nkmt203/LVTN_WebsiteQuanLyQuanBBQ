@@ -7,7 +7,7 @@ import { getErrorMessage } from '../api/errorHandler';
 const linkClass = ({ isActive }) =>
   [
     'px-3 py-1.5 rounded-lg text-sm',
-    isActive ? 'bg-blue-100 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-100',
+    isActive ? 'bg-teal-100 text-teal-700 font-medium' : 'text-stone-600 hover:bg-stone-100',
   ].join(' ');
 
 function ServerLayout() {
@@ -34,19 +34,19 @@ function ServerLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen bg-stone-100 flex flex-col">
+      <header className="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-blue-600">🍖 BBQ Phục vụ</h1>
+          <h1 className="text-lg font-bold text-teal-600">🍖 MeatOSync Phục vụ</h1>
           <NavLink to="/server/tables" className={linkClass}>Sơ đồ bàn</NavLink>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-sm font-medium text-slate-800">{user?.ho_ten}</div>
-            <div className="text-xs text-slate-500">{user?.ten_vai_tro}</div>
+            <div className="text-sm font-medium text-stone-800">{user?.ho_ten}</div>
+            <div className="text-xs text-stone-500">{user?.ten_vai_tro}</div>
           </div>
           <button onClick={handleEndShift}
-                  className="text-sm text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-lg">
+                  className="text-sm text-stone-600 hover:bg-stone-100 px-3 py-1.5 rounded-lg">
             Hết ca
           </button>
           <button onClick={handleLogout}
