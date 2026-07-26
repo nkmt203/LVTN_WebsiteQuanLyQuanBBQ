@@ -11,7 +11,7 @@ const getTablesMap = async (req, res) => {
   try {
     const [rows] = await pool.query(`
             SELECT b.ma_ban, b.ten_ban, b.ma_khu_vuc, kv.ten_khu_vuc,
-            b.so_ghe,b.trang_thai,
+            b.so_ghe,b.trang_thai, b.qr_code_dinh_danh,
             hd.ma_hoa_don,hd.thoi_gian_mo_ban
             FROM BAN b
             JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
