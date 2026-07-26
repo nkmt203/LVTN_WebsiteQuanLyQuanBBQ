@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { getProfiles, selectProfile } from "../../api/authApi";
 import { useAuth } from "../../context/AuthContext";
 import { getErrorMessage } from "../../api/errorHandler";
@@ -59,7 +59,7 @@ function SelectProfilePage() {
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(null);
   const navigate = useNavigate();
-  const { user, loginSession, logout } = useAuth();
+  const { user, loading: authLoading, loginSession, logout } = useAuth();
 
   useEffect(() => {
     async function load() {
@@ -99,6 +99,18 @@ function SelectProfilePage() {
     navigate("/login");
   }
 
+  // Chưa khôi phục xong phiên đăng nhập từ localStorage -> chưa quyết định vội
+  if (authLoading) return null;
+
+  // Thiết bị chưa đăng nhập -> về Login
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Đã có hồ sơ nhân viên đang hoạt động trên thiết bị -> không cho quay lại
+  // màn chọn hồ sơ để "mượn" hồ sơ khác giữa ca; phải bấm "Hết ca" trước.
+  if (user.ma_nhan_vien) {
+    return <Navigate to={roleToPath[user.ten_vai_tro] || "/login"} replace />;
+  }
+
   return (
     <div className="min-h-screen bg-stone-100">
       <header className="border-b border-stone-200 bg-white">
@@ -112,7 +124,8 @@ function SelectProfilePage() {
                 MeatOSync
               </div>
               <div className="text-xs text-stone-400">
-                Vai trò thiết bị: {roleLabel[user?.ten_vai_tro] || user?.ten_vai_tro}
+                Vai trò thiết bị:{" "}
+                {roleLabel[user?.ten_vai_tro] || user?.ten_vai_tro}
               </div>
             </div>
           </div>

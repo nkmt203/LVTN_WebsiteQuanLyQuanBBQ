@@ -222,24 +222,30 @@ const groupByBatch = (items) => {
 };
 
 const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
+  const [showDone, setShowDone] = useState(false);
+
   // Bill chính = tất cả trừ món hủy đã tiếp nhận (đã xử lý xong, không cần hiện nữa)
   const mainItems = table.items.filter((i) =>
     !(i.trang_thai === 'Da_huy' && i.ghi_chu?.includes('[BEP_OK]'))
   );
-  const batches = groupByBatch(mainItems);
+  // Món đã hoàn thành gộp lại ẩn mặc định (bill dài không bị choán chỗ bởi
+  // những món đã xong việc); chỉ còn món đang cần xử lý hiện ngay trong vé.
+  const activeItems = mainItems.filter((i) => i.trang_thai !== 'Da_hoan_thanh');
+  const doneItems = mainItems.filter((i) => i.trang_thai === 'Da_hoan_thanh');
+  const batches = groupByBatch(activeItems);
 
   const pendingCount = table.items.filter((i) =>
     !['Da_hoan_thanh', 'Da_huy'].includes(i.trang_thai)
   ).length;
-  const doneCount = table.items.filter((i) => i.trang_thai === 'Da_hoan_thanh').length;
+  const doneCount = doneItems.length;
   const cancelPendingCount = table.items.filter((i) =>
     i.trang_thai === 'Da_huy' && !i.ghi_chu?.includes('[BEP_OK]')
   ).length;
 
   return (
-    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
       {/* Header */}
-      <div className="bg-stone-50 border-b border-stone-200 px-3 py-2 flex justify-between items-center gap-2">
+      <div className="bg-stone-50 border-b border-stone-200 px-3 py-2 flex justify-between items-center gap-2 shrink-0">
         <div className="min-w-0">
           <div className="font-bold text-stone-800 text-sm truncate">{table.ten_ban}</div>
           <div className="text-xs text-stone-500 truncate">{table.ten_khu_vuc}</div>
@@ -263,39 +269,67 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
         </div>
       </div>
 
-      {/* Bill chính — mỗi đợt gửi bếp hiện thành 1 "vé" riêng, phân cách bằng đường đứt nét */}
-      {batches.map((batch, idx) => (
-        <div
-          key={batch.time}
-          className={idx > 0 ? 'border-t-2 border-dashed border-orange-200' : ''}
-        >
-          {batches.length > 1 && (
-            <div className="px-3 py-1 bg-orange-50 text-xs font-semibold text-orange-700 flex items-center gap-1">
-              🎫 Đợt {idx + 1} · {new Date(batch.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
-          <table className="w-full text-sm">
-            <thead className="bg-stone-50 text-stone-500 text-xs uppercase">
-              <tr>
-                <th className="px-2 py-1.5 text-center w-10">SL</th>
-                <th className="px-2 py-1.5 text-left">Món</th>
-                <th className="px-2 py-1.5 text-left">Ghi chú</th>
-                <th className="px-2 py-1.5 text-center w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {batch.items.map((item) => (
-                <OrderItemRow
-                  key={item.ma_chi_tiet_hd}
-                  item={item}
-                  onComplete={onComplete}
-                  onAckCancel={onAckCancel}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      {/* Thân vé — cuộn riêng bên trong khi bill quá dài, giữ chiều cao thẻ đồng đều trên lưới */}
+      <div className="max-h-96 overflow-y-auto">
+        {/* Bill chính — mỗi đợt gửi bếp hiện thành 1 "vé" riêng, phân cách bằng đường đứt nét */}
+        {batches.map((batch, idx) => (
+          <div
+            key={batch.time}
+            className={idx > 0 ? 'border-t-2 border-dashed border-orange-200' : ''}
+          >
+            {batches.length > 1 && (
+              <div className="px-3 py-1 bg-orange-50 text-xs font-semibold text-orange-700 flex items-center gap-1">
+                🎫 Đợt {idx + 1} · {new Date(batch.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+            <table className="w-full text-sm">
+              <thead className="bg-stone-50 text-stone-500 text-xs uppercase">
+                <tr>
+                  <th className="px-2 py-1.5 text-center w-10">SL</th>
+                  <th className="px-2 py-1.5 text-left">Món</th>
+                  <th className="px-2 py-1.5 text-left">Ghi chú</th>
+                  <th className="px-2 py-1.5 text-center w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {batch.items.map((item) => (
+                  <OrderItemRow
+                    key={item.ma_chi_tiet_hd}
+                    item={item}
+                    onComplete={onComplete}
+                    onAckCancel={onAckCancel}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+
+        {doneItems.length > 0 && (
+          <div className="border-t border-stone-100">
+            <button
+              onClick={() => setShowDone((v) => !v)}
+              className="w-full text-left px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-50"
+            >
+              {showDone ? '▲ Ẩn' : '▼ Hiện'} {doneItems.length} món đã xong
+            </button>
+            {showDone && (
+              <table className="w-full text-sm">
+                <tbody>
+                  {doneItems.map((item) => (
+                    <OrderItemRow
+                      key={item.ma_chi_tiet_hd}
+                      item={item}
+                      onComplete={onComplete}
+                      onAckCancel={onAckCancel}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
