@@ -391,7 +391,7 @@ const confirmOrderItem = async (req, res) => {
         .json({ message: "Món này không ở trạng thái chờ xác nhận" });
     }
     if (graceTimers.has(Number(id))) {
-      return res.json({ message: "Đã xác nhận trước đó, đang chờ hết thời gian ân hạn" });
+      return res.json({ message: "Đã xác nhận trước đó, đang chờ gửi xuống bếp" });
     }
 
     const timer = setTimeout(async () => {

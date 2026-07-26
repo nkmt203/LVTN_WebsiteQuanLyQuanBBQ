@@ -4,8 +4,12 @@ const bus = require("../events/socketBus");
 // ============================================================
 // GET /api/kitchen/orders — danh sách món cho bếp xử lý
 // Bao gồm:
-//   - Món Cho_xac_nhan / Dang_che_bien (đang cần làm)
+//   - Món Dang_che_bien (đang cần làm) / Da_hoan_thanh (đã làm xong, hiện trong vé)
 //   - Món Da_huy mà bếp CHƯA tiếp nhận (chưa bấm "Đã dừng chế biến")
+// KHÔNG bao gồm món Cho_xac_nhan: theo nghiệp vụ, nhân viên phục vụ phải xác
+// nhận (qua confirmOrderItem, sau thời gian) trước khi món được xem là
+// lệnh chế biến chính thức và chuyển tới bếp — bếp không được thấy món khi
+// còn đang chờ xác nhận.
 // ============================================================
 const getPendingOrders = async (req, res) => {
   try {
@@ -23,16 +27,15 @@ const getPendingOrders = async (req, res) => {
       JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
       JOIN MON_AN m ON ct.ma_mon_an = m.ma_mon_an
       LEFT JOIN NHAN_VIEN nv ON ct.ma_nv_xac_nhan = nv.ma_nhan_vien
-      WHERE hd.trang_thai = 'Dang_phuc_vu'
+      WHERE hd.trang_thai = 'Dang_phuc_vu' AND ct.trang_thai != 'Cho_xac_nhan'
       ORDER BY
         (SELECT MIN(ct2.thoi_gian_goi_mon)
          FROM CHI_TIET_HOA_DON ct2
          WHERE ct2.ma_hoa_don = ct.ma_hoa_don) ASC,
         CASE ct.trang_thai
           WHEN 'Da_huy' THEN 0
-          WHEN 'Cho_xac_nhan' THEN 1
-          WHEN 'Dang_che_bien' THEN 2
-          WHEN 'Da_hoan_thanh' THEN 3
+          WHEN 'Dang_che_bien' THEN 1
+          WHEN 'Da_hoan_thanh' THEN 2
         END,
         ct.thoi_gian_goi_mon ASC
     `);

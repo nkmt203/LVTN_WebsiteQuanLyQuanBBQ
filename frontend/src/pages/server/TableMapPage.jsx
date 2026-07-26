@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
+import { QrCode } from 'lucide-react';
 import { getTablesMap, openTable } from '../../api/serviceApi';
 import { getErrorMessage } from '../../api/errorHandler';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import Modal from '../../components/common/Modal';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -27,6 +30,7 @@ function TableMapPage() {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
   const [openTarget, setOpenTarget] = useState(null); // bàn Trống đang chờ xác nhận mở
+  const [qrTarget, setQrTarget] = useState(null); // bàn đang xem/in mã QR gọi món
   const navigate = useNavigate();
   const timerRef = useRef(null);
 
@@ -129,7 +133,7 @@ function TableMapPage() {
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {list.map((b) => (
-              <TableCard key={b.ma_ban} ban={b} onClick={handleClickTable} />
+              <TableCard key={b.ma_ban} ban={b} onClick={handleClickTable} onShowQr={setQrTarget} />
             ))}
           </div>
         </div>
@@ -143,25 +147,74 @@ function TableMapPage() {
         onConfirm={confirmOpenTable}
         onClose={() => setOpenTarget(null)}
       />
+
+      <Modal
+        open={!!qrTarget}
+        onClose={() => setQrTarget(null)}
+        title={qrTarget ? `Mã QR gọi món - ${qrTarget.ten_ban}` : 'Mã QR gọi món'}
+      >
+        {qrTarget && <TableQrContent ban={qrTarget} />}
+      </Modal>
     </div>
   );
 }
 
 // Tách 1 ô bàn ra thành component nhỏ
-function TableCard({ ban, onClick }) {
+function TableCard({ ban, onClick, onShowQr }) {
   const style = STATUS_STYLE[ban.trang_thai] || STATUS_STYLE.Trong;
   return (
-    <button
-      onClick={() => onClick(ban)}
-      className={`p-4 rounded-xl border-2 text-left transition-all active:scale-95 ${style.card}`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-bold text-stone-800">{ban.ten_ban}</span>
-        <span className={`w-2 h-2 rounded-full ${style.dot}`}></span>
+    <div className={`relative rounded-xl border-2 transition-all ${style.card}`}>
+      <button
+        onClick={() => onClick(ban)}
+        className="w-full p-4 text-left active:scale-95 transition-all"
+      >
+        <div className="flex items-center gap-1.5 pr-6">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`}></span>
+          <span className="font-bold text-stone-800 truncate">{ban.ten_ban}</span>
+        </div>
+        <div className="text-xs text-stone-500 mt-1">{ban.so_ghe} ghế</div>
+        <div className={`text-xs font-medium mt-2 ${style.text}`}>{style.label}</div>
+      </button>
+
+      {ban.qr_code_dinh_danh && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowQr(ban);
+          }}
+          title="Xem / in mã QR gọi món"
+          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-white hover:text-teal-600"
+        >
+          <QrCode className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Nội dung modal xem/in mã QR — mỗi bàn có 1 mã QR cố định (dán tại bàn),
+// khách quét vào để vào thực đơn gọi món qua điện thoại
+function TableQrContent({ ban }) {
+  const qrUrl = `${window.location.origin}/qr/${ban.qr_code_dinh_danh}`;
+  return (
+    <div>
+      <div id="printable-qr" className="flex flex-col items-center gap-3 py-2">
+        <div className="rounded-xl border border-stone-200 p-4">
+          <QRCodeSVG value={qrUrl} size={200} />
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-bold text-stone-800">{ban.ten_ban}</div>
+          <div className="text-xs text-stone-500">{ban.ten_khu_vuc}</div>
+          <div className="text-xs text-stone-400 mt-1">Quét mã để xem thực đơn và gọi món</div>
+        </div>
       </div>
-      <div className="text-xs text-stone-500 mt-1">{ban.so_ghe} ghế</div>
-      <div className={`text-xs font-medium mt-2 ${style.text}`}>{style.label}</div>
-    </button>
+      <button
+        onClick={() => window.print()}
+        className="w-full mt-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+      >
+        🖨 In mã QR
+      </button>
+    </div>
   );
 }
 

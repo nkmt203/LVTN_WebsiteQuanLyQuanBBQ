@@ -100,6 +100,15 @@ function OrderPage() {
     socket.on("qr:new-request", (p) => {
       if (String(p.ma_ban) === String(tableId)) loadBill();
     });
+    // Hết 15s ân hạn sau khi NV bấm "Xác nhận" (nghiệp vụ 2.3.1.11.a Bước 6):
+    // món tự động chuyển "Đang chế biến" và được gửi xuống bếp — báo cho NV biết
+    // để không tưởng nhầm là bấm xác nhận chưa có tác dụng.
+    socket.on("qr:order-confirmed", (p) => {
+      if (String(p.ma_ban) === String(tableId)) {
+        setFeedback({ type: "success", text: "Món đã được gửi xuống bếp." });
+        loadBill();
+      }
+    });
     return () => socket.disconnect();
   }, [tableId]);
 
