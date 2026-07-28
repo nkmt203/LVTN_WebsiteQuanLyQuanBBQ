@@ -16,3 +16,9 @@ export const submitQrOrder = (qrCode, token, items) =>
 
 export const cancelQrOrder = (qrCode, token) =>
   qrClient.delete(`/qr/${qrCode}/order`, { data: { token } }).then((r) => r.data);
+
+// Nghiệp vụ 2.3.1.14 — AI tư vấn món ăn
+export const getAiSuggestion = (qrCode, token, noiDung) =>
+  qrClient
+    .post(`/qr/${qrCode}/ai-suggest`, { token, noi_dung: noiDung })
+    .then((r) => r.data);

@@ -8,5 +8,6 @@ router.get("/:qrCode", c.getQrSession);
 router.get("/:qrCode/bill", c.getQrBill);
 router.post("/:qrCode/order", c.submitQrOrder);
 router.delete("/:qrCode/order", c.cancelQrOrder);
+router.post("/:qrCode/ai-suggest", c.suggestFood);
 
 module.exports = router;

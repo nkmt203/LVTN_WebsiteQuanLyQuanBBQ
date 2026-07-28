@@ -169,6 +169,15 @@ const payBill = async (req, res) => {
       await conn.rollback();
       return res.status(409).json({ message: 'Hóa đơn đã bị hủy' });
     }
+    // Chỉ được thanh toán khi phục vụ đã gửi yêu cầu (nghiệp vụ 2.3.1.12): chặn
+    // trường hợp thanh toán nhầm 1 hóa đơn còn "Đang phục vụ" (chưa được yêu cầu
+    // thanh toán) khiến bàn bị trả về Trống trong khi hóa đơn đó vẫn còn dang dở.
+    if (hd.trang_thai !== 'Cho_thanh_toan') {
+      await conn.rollback();
+      return res.status(409).json({
+        message: `Hóa đơn đang ở trạng thái "${hd.trang_thai}", chưa được yêu cầu thanh toán.`,
+      });
+    }
 
     // Kiểm tra không còn món chưa xong (đảm bảo bếp làm xong hết mới thanh toán)
     const [chuaXong] = await conn.query(
