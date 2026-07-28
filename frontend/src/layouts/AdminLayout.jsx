@@ -107,7 +107,6 @@ function AdminLayout() {
               <NavLink to="/admin/revenue" className={linkClass}>
                 Doanh thu
               </NavLink>
-              {/* MOCK — xoá mục này khi triển khai module AI dự báo thật */}
               <NavLink to="/admin/forecast" className={linkClass}>
                 Dự báo nguyên liệu
               </NavLink>

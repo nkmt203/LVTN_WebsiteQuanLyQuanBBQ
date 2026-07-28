@@ -21,7 +21,7 @@ import WarehousePage from "./pages/admin/WarehousePage";
 import SupplierPage from "./pages/admin/SupplierPage";
 import EmployeePage from "./pages/admin/EmployeePage";
 import RevenuePage from "./pages/admin/RevenuePage";
-import ForecastPage from "./pages/admin/ForecastPage"; // MOCK — xoá khi triển khai module AI dự báo thật
+import ForecastPage from "./pages/admin/ForecastPage"; // AI dự báo nguyên liệu (forecast-service + Prophet)
 import OrderPage from "./pages/server/OrderPage";
 // Server pages
 import TableMapPage from "./pages/server/TableMapPage";
