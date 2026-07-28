@@ -1,28 +1,15 @@
 import { useState } from "react";
+import { getForecast } from "../../api/forecastApi";
+import { getErrorMessage } from "../../api/errorHandler";
 
-// ============================================================
-// GIAO DIỆN MINH HỌA (MOCK) — module "AI dự báo nhu cầu nguyên liệu"
-// (nghiệp vụ 2.3.1.15). Toàn bộ dữ liệu trong file này là dữ liệu giả,
-// KHÔNG có phân hệ dự báo/AI thật đứng sau. Khi triển khai module thật:
-// xoá file này + dòng route "forecast" trong App.jsx + mục nav tương ứng
-// trong AdminLayout.jsx.
-// ============================================================
+// Nghiệp vụ 2.3.1.15 — AI dự báo nhu cầu nguyên liệu. Backend Node chuyển tiếp
+// yêu cầu sang forecast-service (Python + Prophet, phân hệ độc lập) rồi trả
+// kết quả về đây để hiển thị.
 
 const RANGES = [
   { key: "7d", label: "7 ngày tới", days: 7 },
   { key: "week", label: "Tuần tới", days: 7 },
   { key: "month", label: "Tháng tới", days: 30 },
-];
-
-const INGREDIENTS = [
-  { ten: "Thịt ba chỉ bò", dvt: "kg", ton: 160, base: 12, bienDong: 1.6 },
-  { ten: "Ba rọi heo", dvt: "kg", ton: 65, base: 9, bienDong: 1.3 },
-  { ten: "Sườn non", dvt: "kg", ton: 65, base: 7, bienDong: 1.1 },
-  { ten: "Tôm sú", dvt: "kg", ton: 50, base: 5, bienDong: 1.8 },
-  { ten: "Bắp Mỹ", dvt: "trái", ton: 230, base: 20, bienDong: 1.4 },
-  { ten: "Nấm kim châm", dvt: "kg", ton: 30, base: 4, bienDong: 1.2 },
-  { ten: "Rau cải", dvt: "kg", ton: 50, base: 6, bienDong: 1.0 },
-  { ten: "Nước tương", dvt: "lít", ton: 30, base: 3, bienDong: 0.8 },
 ];
 
 const BUOC_PHAN_TICH = [
@@ -31,46 +18,44 @@ const BUOC_PHAN_TICH = [
   "Tính toán dự báo nguyên liệu...",
 ];
 
-function tinhDuBao(days) {
-  return INGREDIENTS.map((ing) => {
-    // Đã tiêu thụ: ước tính dựa trên lịch sử kỳ trước (cùng độ dài kỳ)
-    const daTieuThu = Math.round(ing.base * ing.bienDong * days * 0.92 * 10) / 10;
-    // Dự kiến cần: mô hình dự báo áp xu hướng tăng nhẹ so với lịch sử
-    const duKienCan = Math.round(ing.base * ing.bienDong * days * 1.05 * 10) / 10;
-    const chenhLech = Math.round((ing.ton - duKienCan) * 10) / 10;
-    return { ...ing, daTieuThu, duKienCan, chenhLech };
-  });
-}
-
 function ForecastPage() {
   const [rangeKey, setRangeKey] = useState("7d");
   const [buocHienTai, setBuocHienTai] = useState(0);
   const [dangChay, setDangChay] = useState(false);
   const [ketQua, setKetQua] = useState(null);
+  const [loi, setLoi] = useState(null);
   const range = RANGES.find((r) => r.key === rangeKey);
 
   const chonKhoang = (key) => {
     setRangeKey(key);
     setKetQua(null);
+    setLoi(null);
   };
 
-  const chayDuBao = () => {
+  const chayDuBao = async () => {
     setDangChay(true);
     setKetQua(null);
+    setLoi(null);
     setBuocHienTai(0);
 
-    // Giả lập tiến trình phân tích của AI qua từng bước, rồi mới trả kết quả
-    BUOC_PHAN_TICH.forEach((_, idx) => {
-      setTimeout(() => setBuocHienTai(idx), idx * 550);
-    });
-    setTimeout(() => {
-      const days = RANGES.find((r) => r.key === rangeKey).days;
-      setKetQua(tinhDuBao(days));
+    // Tiến trình chỉ mang tính minh hoạ (Prophet thật chạy phía forecast-service
+    // có thể mất vài giây) — cứ luân phiên các bước cho tới khi có kết quả
+    const stepTimer = setInterval(() => {
+      setBuocHienTai((b) => (b + 1 < BUOC_PHAN_TICH.length ? b + 1 : b));
+    }, 700);
+
+    try {
+      const r = await getForecast(range.days);
+      setKetQua(r.du_lieu);
+    } catch (err) {
+      setLoi(getErrorMessage(err));
+    } finally {
+      clearInterval(stepTimer);
       setDangChay(false);
-    }, BUOC_PHAN_TICH.length * 550 + 300);
+    }
   };
 
-  const soCanNhapThem = ketQua ? ketQua.filter((d) => d.chenhLech < 0).length : 0;
+  const soCanNhapThem = ketQua ? ketQua.filter((d) => d.chenh_lech < 0).length : 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -129,7 +114,13 @@ function ForecastPage() {
         </div>
       )}
 
-      {!dangChay && !ketQua && (
+      {loi && !dangChay && (
+        <div className="mb-5 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+          {loi}
+        </div>
+      )}
+
+      {!dangChay && !ketQua && !loi && (
         <div className="bg-white rounded-xl border border-dashed border-stone-300 p-10 text-center">
           <div className="text-4xl mb-2">🔮</div>
           <p className="text-stone-600 font-medium">Chưa có kết quả dự báo</p>
@@ -163,15 +154,16 @@ function ForecastPage() {
             </div>
           </div>
 
-          {/* Bảng số liệu chi tiết */}
+          {/* Bảng số liệu chi tiết — cuộn riêng bên trong vì dữ liệu khá dài */}
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="max-h-[60vh] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="bg-stone-50 text-stone-500 text-xs uppercase">
+              <thead className="bg-stone-50 text-stone-500 text-xs uppercase sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-2 text-left">Nguyên liệu</th>
                   <th className="px-3 py-2 text-center">Đơn vị</th>
                   <th className="px-3 py-2 text-right">Tồn hiện tại</th>
-                  <th className="px-3 py-2 text-right">Đã tiêu thụ (kỳ trước)</th>
+                  <th className="px-3 py-2 text-right">Đã tiêu thụ (gần đây)</th>
                   <th className="px-3 py-2 text-right">Dự kiến cần ({range.days} ngày)</th>
                   <th className="px-3 py-2 text-right">Chênh lệch</th>
                   <th className="px-3 py-2 text-center">Trạng thái</th>
@@ -179,16 +171,16 @@ function ForecastPage() {
               </thead>
               <tbody>
                 {ketQua.map((ing) => {
-                  const thieu = ing.chenhLech < 0;
+                  const thieu = ing.chenh_lech < 0;
                   return (
-                    <tr key={ing.ten} className="border-t border-stone-100">
-                      <td className="px-3 py-2 text-stone-800">{ing.ten}</td>
-                      <td className="px-3 py-2 text-center text-stone-500">{ing.dvt}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.ton}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.daTieuThu}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.duKienCan}</td>
+                    <tr key={ing.ma_nguyen_lieu} className="border-t border-stone-100">
+                      <td className="px-3 py-2 text-stone-800">{ing.ten_nguyen_lieu}</td>
+                      <td className="px-3 py-2 text-center text-stone-500">{ing.don_vi_tinh}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.ton_hien_tai}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.da_tieu_thu}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-stone-700">{ing.du_kien_can}</td>
                       <td className={"px-3 py-2 text-right tabular-nums font-medium " + (thieu ? "text-red-600" : "text-emerald-600")}>
-                        {ing.chenhLech > 0 ? "+" : ""}{ing.chenhLech}
+                        {ing.chenh_lech > 0 ? "+" : ""}{ing.chenh_lech}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <span
@@ -205,6 +197,7 @@ function ForecastPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

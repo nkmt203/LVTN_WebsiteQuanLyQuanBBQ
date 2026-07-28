@@ -1,0 +1,64 @@
+import os
+import mysql.connector
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def get_connection():
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", ""),
+        database=os.getenv("DB_NAME"),
+        port=int(os.getenv("DB_PORT", "3306")),
+    )
+
+
+def lay_danh_sach_nguyen_lieu():
+    """Toàn bộ nguyên liệu đang hoạt động, kèm tồn kho hiện tại và đơn vị tính."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT nl.ma_nguyen_lieu, nl.ten_nguyen_lieu,
+                   dvt.ten_don_vi_tinh,
+                   COALESCE(k.so_luong_ton, 0) AS ton_hien_tai
+            FROM nguyen_lieu nl
+            JOIN don_vi_tinh dvt ON nl.ma_don_vi_tinh = dvt.ma_don_vi_tinh
+            LEFT JOIN kho_nguyen_lieu k ON nl.ma_nguyen_lieu = k.ma_nguyen_lieu
+            WHERE nl.trang_thai = 'Hoat_dong'
+            """
+        )
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def lay_lich_su_tieu_thu():
+    """
+    Lịch sử tiêu thụ nguyên liệu theo từng ngày — quy đổi từ món đã hoàn thành
+    (chi_tiet_hoa_don) qua định mức nguyên liệu/món (dinh_muc_nguyen_lieu).
+    Trả về danh sách dict: {ma_nguyen_lieu, ngay, so_luong_tieu_thu}.
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT dm.ma_nguyen_lieu,
+                   DATE(ct.thoi_gian_hoan_thanh) AS ngay,
+                   SUM(ct.so_luong * dm.so_luong_su_dung) AS so_luong_tieu_thu
+            FROM chi_tiet_hoa_don ct
+            JOIN dinh_muc_nguyen_lieu dm
+              ON ct.ma_mon_an = dm.ma_mon_an AND dm.trang_thai = 'Hoat_dong'
+            WHERE ct.trang_thai = 'Da_hoan_thanh'
+              AND ct.thoi_gian_hoan_thanh IS NOT NULL
+            GROUP BY dm.ma_nguyen_lieu, DATE(ct.thoi_gian_hoan_thanh)
+            ORDER BY dm.ma_nguyen_lieu, ngay
+            """
+        )
+        return cur.fetchall()
+    finally:
+        conn.close()
