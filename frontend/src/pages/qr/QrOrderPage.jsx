@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { io as ioClient } from "socket.io-client";
-import { getQrSession, getQrBill, submitQrOrder, cancelQrOrder } from "../../api/qrApi";
+import { getQrSession, getQrBill, submitQrOrder, cancelQrOrder, getAiSuggestion } from "../../api/qrApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import Modal from "../../components/common/Modal";
 
 const POLL_INTERVAL_MS = 5000;
+const AI_MAX_LENGTH = 500;
 
 const ITEM_STATUS = {
   Cho_xac_nhan: { cls: "bg-amber-50 text-amber-700", text: "Chờ nhân viên xác nhận" },
@@ -28,6 +30,12 @@ function QrOrderPage() {
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const timerRef = useRef(null);
+
+  // ===== AI TƯ VẤN MÓN ĂN (nghiệp vụ 2.3.1.14) =====
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null); // { tra_loi, goi_y } | { error }
 
   // ===== LOAD PHIÊN + THỰC ĐƠN (Bước 1) =====
   useEffect(() => {
@@ -133,6 +141,29 @@ function QrOrderPage() {
     await loadBill(session.phien_token);
   };
 
+  // ===== HỎI AI TƯ VẤN MÓN ĂN (Bước 1-6) =====
+  const handleAskAi = async () => {
+    const cauHoi = aiInput.trim();
+    if (!cauHoi) return; // Bước 2: rỗng thì không gửi, giữ nguyên Bước 1
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const r = await getAiSuggestion(qrCode, session.phien_token, cauHoi);
+      setAiResult({ tra_loi: r.tra_loi, goi_y: r.goi_y });
+    } catch (err) {
+      // Bước 4 nhánh lỗi: quá 10s / mất mạng / AI lỗi — BE đã trả đúng câu thông báo chuẩn
+      setAiResult({ error: getErrorMessage(err) });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const closeAiPanel = () => {
+    setAiOpen(false);
+    setAiInput("");
+    setAiResult(null);
+  };
+
   // ===== RENDER =====
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-stone-500 text-sm">Đang tải...</div>;
@@ -159,9 +190,9 @@ function QrOrderPage() {
   const getCartQty = (maMonAn) => cart.find((p) => p.ma_mon_an === maMonAn)?.so_luong || 0;
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-56">
+    <div className="h-screen flex flex-col bg-stone-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-stone-200 px-4 py-3 sticky top-0 z-10">
+      <div className="shrink-0 bg-white border-b border-stone-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-stone-800">{session.ten_ban}</h1>
           <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
@@ -171,10 +202,20 @@ function QrOrderPage() {
         <p className="text-xs text-stone-500">Xem thực đơn và gọi món ngay tại bàn</p>
       </div>
 
+      {/* Lối vào Trợ lý AI tư vấn món ăn — nghiệp vụ 2.3.1.14 */}
+      <div className="shrink-0 px-4 mt-3">
+        <button
+          onClick={() => setAiOpen(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium active:scale-95 transition-all"
+        >
+          🤖 Trợ lý AI tư vấn món ăn
+        </button>
+      </div>
+
       {feedback && (
         <div
           className={
-            "mx-4 mt-3 px-3 py-2 rounded-lg border text-sm " +
+            "shrink-0 mx-4 mt-3 px-3 py-2 rounded-lg border text-sm " +
             (feedback.type === "error"
               ? "bg-red-50 border-red-200 text-red-700"
               : "bg-emerald-50 border-emerald-200 text-emerald-700")
@@ -186,7 +227,7 @@ function QrOrderPage() {
 
       {/* Giỏ hàng hiện tại (đã gửi) */}
       {activeBill.length > 0 && (
-        <div className="mx-4 mt-3 bg-white rounded-xl border border-stone-200 p-3">
+        <div className="shrink-0 mx-4 mt-3 bg-white rounded-xl border border-stone-200 p-3 max-h-40 overflow-y-auto">
           <h2 className="text-sm font-semibold text-stone-800 mb-2">Món đã gọi</h2>
           <div className="flex flex-col gap-2">
             {activeBill.map((item) => {
@@ -214,7 +255,7 @@ function QrOrderPage() {
       )}
 
       {/* Thanh chip danh mục */}
-      <div className="px-4 mt-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="shrink-0 px-4 mt-4 flex gap-2 overflow-x-auto pb-1">
         <CategoryChip label="Tất cả" active={selectedCat === ""} onClick={() => setSelectedCat("")} />
         {session.categories.map((dm) => (
           <CategoryChip
@@ -226,25 +267,27 @@ function QrOrderPage() {
         ))}
       </div>
 
-      {/* Danh sách món */}
-      <div className="px-4 mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {filteredFoods.length === 0 ? (
-          <p className="text-stone-400 text-sm text-center py-8 col-span-full">Danh mục này chưa có món nào.</p>
-        ) : (
-          filteredFoods.map((mon) => (
-            <FoodCard
-              key={mon.ma_mon_an}
-              mon={mon}
-              qty={getCartQty(mon.ma_mon_an)}
-              onAdd={handleAddToCart}
-            />
-          ))
-        )}
+      {/* Danh sách món — cuộn riêng bên trong, không kéo dài cả trang */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 mt-3 pb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {filteredFoods.length === 0 ? (
+            <p className="text-stone-400 text-sm text-center py-8 col-span-full">Danh mục này chưa có món nào.</p>
+          ) : (
+            filteredFoods.map((mon) => (
+              <FoodCard
+                key={mon.ma_mon_an}
+                mon={mon}
+                qty={getCartQty(mon.ma_mon_an)}
+                onAdd={handleAddToCart}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Giỏ tạm + nút gửi — cố định đáy màn hình */}
+      {/* Giỏ tạm + nút gửi — ghim đáy màn hình, không scroll theo trang */}
       {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+        <div className="shrink-0 bg-white border-t border-stone-200 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
           <div className="max-h-40 overflow-y-auto flex flex-col gap-2 mb-2">
             {cart.map((p) => (
               <CartRow key={p.ma_mon_an} item={p} onUpdateQty={updateCartQty} onUpdateNote={updateCartNote} />
@@ -269,9 +312,81 @@ function QrOrderPage() {
         onConfirm={handleCancelPending}
         onClose={() => setConfirmCancelOpen(false)}
       />
+
+      <Modal open={aiOpen} onClose={closeAiPanel} title="🤖 Trợ lý AI tư vấn món ăn">
+        <AiAdvisorPanel
+          value={aiInput}
+          onChange={setAiInput}
+          loading={aiLoading}
+          result={aiResult}
+          onAsk={handleAskAi}
+          getCartQty={getCartQty}
+          onAdd={(mon) => {
+            handleAddToCart(mon);
+            setFeedback({ type: "success", text: `Đã thêm "${mon.ten_mon_an}" vào giỏ` });
+          }}
+          onShowMenu={closeAiPanel}
+        />
+      </Modal>
     </div>
   );
 }
+
+const AiAdvisorPanel = ({ value, onChange, loading, result, onAsk, getCartQty, onAdd, onShowMenu }) => (
+  <div className="flex flex-col gap-3">
+    <p className="text-sm text-stone-600">
+      Cho mình biết sở thích, khẩu vị (cay, không cay...), số người ăn hoặc ngân sách — mình sẽ gợi ý món phù hợp.
+    </p>
+
+    <div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value.slice(0, AI_MAX_LENGTH))}
+        maxLength={AI_MAX_LENGTH}
+        rows={3}
+        placeholder="Ví dụ: Nhóm mình 4 người, thích ăn cay, ngân sách khoảng 500k..."
+        disabled={loading}
+        className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 resize-none disabled:opacity-60"
+      />
+      <div className="text-right text-xs text-stone-400 mt-0.5">{value.length}/{AI_MAX_LENGTH}</div>
+    </div>
+
+    <button
+      onClick={onAsk}
+      disabled={loading || !value.trim()}
+      className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 active:scale-95 transition-all"
+    >
+      {loading ? "Đang tìm món phù hợp..." : "Hỏi trợ lý AI"}
+    </button>
+
+    {result?.error && (
+      <div className="flex flex-col gap-2">
+        <div className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+          {result.error}
+        </div>
+        <button
+          onClick={onShowMenu}
+          className="w-full py-2 rounded-lg border border-stone-300 text-stone-600 text-sm hover:bg-stone-50"
+        >
+          Xem thực đơn
+        </button>
+      </div>
+    )}
+
+    {result?.tra_loi !== undefined && !result.error && (
+      <div className="flex flex-col gap-3">
+        <div className="px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm">
+          {result.tra_loi}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {result.goi_y.map((mon) => (
+            <FoodCard key={mon.ma_mon_an} mon={mon} qty={getCartQty(mon.ma_mon_an)} onAdd={onAdd} />
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+);
 
 const CategoryChip = ({ label, active, onClick }) => (
   <button

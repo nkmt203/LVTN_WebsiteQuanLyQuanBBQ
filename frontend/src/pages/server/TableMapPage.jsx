@@ -23,6 +23,15 @@ const STATUS_STYLE = {
     text: 'text-teal-700',
     label: 'Đang phục vụ',
   },
+  // Trạng thái hiển thị suy ra (không phải BAN.trang_thai thật) — bàn đã gửi yêu
+  // cầu thanh toán, đang chờ thu ngân xử lý: khoá không cho gọi thêm món để
+  // tránh nhầm lẫn/tạo hóa đơn mới trong lúc thu ngân đang xử lý hóa đơn cũ.
+  Cho_thanh_toan: {
+    card: 'bg-amber-50 border-amber-300 cursor-not-allowed',
+    dot: 'bg-amber-500',
+    text: 'text-amber-700',
+    label: 'Chờ thanh toán',
+  },
 };
 
 function TableMapPage() {
@@ -54,6 +63,15 @@ function TableMapPage() {
   }, []);
 
   const handleClickTable = (b) => {
+    // Bàn đã gửi yêu cầu thanh toán -> khoá, không cho gọi thêm món cho tới khi
+    // thu ngân xử lý xong (tránh tạo hóa đơn mới/nhầm lẫn trong lúc chờ)
+    if (b.trang_thai === 'Dang_su_dung' && b.trang_thai_hoa_don === 'Cho_thanh_toan') {
+      setFeedback({
+        type: 'error',
+        text: `${b.ten_ban} đang chờ thu ngân xử lý thanh toán, chưa thể gọi thêm món.`,
+      });
+      return;
+    }
     // Bàn đang phục vụ -> vào trang gọi món
     if (b.trang_thai === 'Dang_su_dung') {
       navigate(`/server/order/${b.ma_ban}`);
@@ -82,7 +100,8 @@ function TableMapPage() {
   }, {});
 
   const soTrong = tables.filter((b) => b.trang_thai === 'Trong').length;
-  const soDangPhucVu = tables.filter((b) => b.trang_thai === 'Dang_su_dung').length;
+  const soChoThanhToan = tables.filter((b) => b.trang_thai_hoa_don === 'Cho_thanh_toan').length;
+  const soDangPhucVu = tables.filter((b) => b.trang_thai === 'Dang_su_dung').length - soChoThanhToan;
 
   if (loading) return <p className="text-sm text-stone-500">Đang tải sơ đồ bàn...</p>;
 
@@ -105,6 +124,11 @@ function TableMapPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
             <span className="text-stone-500">Đang phục vụ</span>
             <span className="font-semibold text-stone-800">{soDangPhucVu}</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-white border border-stone-200 px-3 py-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span className="text-stone-500">Chờ thanh toán</span>
+            <span className="font-semibold text-stone-800">{soChoThanhToan}</span>
           </div>
         </div>
       </div>
@@ -161,7 +185,11 @@ function TableMapPage() {
 
 // Tách 1 ô bàn ra thành component nhỏ
 function TableCard({ ban, onClick, onShowQr }) {
-  const style = STATUS_STYLE[ban.trang_thai] || STATUS_STYLE.Trong;
+  const trangThaiHienThi =
+    ban.trang_thai === 'Dang_su_dung' && ban.trang_thai_hoa_don === 'Cho_thanh_toan'
+      ? 'Cho_thanh_toan'
+      : ban.trang_thai;
+  const style = STATUS_STYLE[trangThaiHienThi] || STATUS_STYLE.Trong;
   return (
     <div className={`relative rounded-xl border-2 transition-all ${style.card}`}>
       <button

@@ -1,5 +1,26 @@
 const pool = require("../config/db");
 const bus = require("../events/socketBus");
+const { Type } = require("@google/genai");
+const { ai, MODEL, TIMEOUT_MS } = require("../config/ai");
+
+// Bước 2 (nghiệp vụ 2.3.1.14): lọc bỏ ký tự lạ / thẻ HTML, giới hạn 500 ký tự
+const MAX_NOI_DUNG = 500;
+const KY_TU_DIEU_KHIEN = new RegExp(
+  "[" + String.fromCharCode(0) + "-" + String.fromCharCode(31) + String.fromCharCode(127) + "]",
+  "g",
+);
+
+const lamSachNoiDung = (raw) => {
+  if (typeof raw !== "string") return "";
+  return raw
+    .replace(/<[^>]*>/g, " ") // bỏ thẻ HTML/script
+    .replace(KY_TU_DIEU_KHIEN, " ") // bỏ ký tự điều khiển
+    .replace(/ +/g, " ")
+    .trim();
+};
+
+const THONG_BAO_AI_LOI =
+  "Chức năng tư vấn tạm thời không khả dụng, vui lòng thử lại sau";
 
 // Kiểm tra mã QR + (tuỳ chọn) mã phiên còn hợp lệ không — dùng chung cho mọi endpoint công khai
 const kiemTraPhien = async (conn, qrCode, token) => {
@@ -288,9 +309,123 @@ const cancelQrOrder = async (req, res) => {
   }
 };
 
+// POST /api/qr/:qrCode/ai-suggest — nghiệp vụ 2.3.1.14 (AI tư vấn món ăn), Bước 1-6
+// Body: { token, noi_dung }
+const suggestFood = async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+    const { token, noi_dung } = req.body;
+
+    const check = await kiemTraPhien(pool, qrCode, token);
+    if (!check.ok) return res.status(403).json({ message: check.message });
+
+    // Bước 2: làm sạch + kiểm tra nội dung yêu cầu (rỗng/quá dài -> yêu cầu nhập lại)
+    const cleaned = lamSachNoiDung(noi_dung);
+    if (!cleaned) {
+      return res
+        .status(400)
+        .json({ message: "Vui lòng nhập nội dung yêu cầu tư vấn" });
+    }
+    if (cleaned.length > MAX_NOI_DUNG) {
+      return res
+        .status(400)
+        .json({ message: "Nội dung yêu cầu tối đa " + MAX_NOI_DUNG + " ký tự" });
+    }
+
+    if (!ai) {
+      console.error("Lỗi suggestFood: thiếu cấu hình GEMINI_API_KEY");
+      return res.status(503).json({ message: THONG_BAO_AI_LOI });
+    }
+
+    const [foods] = await pool.query(
+      `SELECT m.ma_mon_an, m.ten_mon_an, m.gia_ban, m.mo_ta, m.hinh_anh_url, d.ten_danh_muc
+       FROM MON_AN m JOIN DANH_MUC d ON m.ma_danh_muc = d.ma_danh_muc
+       WHERE m.trang_thai = 'Dang_kinh_doanh' AND d.trang_thai = 'Dang_su_dung'`,
+    );
+    if (foods.length === 0) {
+      return res.status(503).json({ message: THONG_BAO_AI_LOI });
+    }
+
+    const dongMon = foods.map((f) =>
+      "#" + f.ma_mon_an + " " + f.ten_mon_an + " (" + f.ten_danh_muc + ", " +
+      Number(f.gia_ban).toLocaleString("vi-VN") + "đ) - " + (f.mo_ta || "Không có mô tả"),
+    );
+    const thucDon = dongMon.join(String.fromCharCode(10));
+
+    // Bước 3: biên dịch yêu cầu khách + danh sách món thành bộ khung câu hỏi tiêu chuẩn
+    const systemInstruction = `Bạn là trợ lý tư vấn món ăn cho một quán BBQ (nướng) tại Việt Nam. Dưới đây là toàn bộ thực đơn đang bán, mỗi dòng gồm mã món, tên món, danh mục, giá và mô tả:
+
+${thucDon}
+
+Dựa vào yêu cầu của khách (sở thích, khẩu vị, số người ăn, ngân sách...), hãy chọn tối đa 5 món PHÙ HỢP NHẤT. CHỈ được chọn từ danh sách trên, dùng đúng mã món đã cho — tuyệt đối không được bịa ra món không có trong danh sách. Trả lời ngắn gọn, thân thiện bằng tiếng Việt, giải thích ngắn lý do chọn.`;
+
+    // Bước 3: thời gian chờ phản hồi AI tối đa 10s
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    let aiResponse;
+    try {
+      aiResponse = await ai.models.generateContent({
+        model: MODEL,
+        contents: cleaned,
+        config: {
+          systemInstruction,
+          abortSignal: controller.signal,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              tra_loi: { type: Type.STRING },
+              goi_y: { type: Type.ARRAY, items: { type: Type.INTEGER } },
+            },
+            required: ["tra_loi", "goi_y"],
+          },
+        },
+      });
+    } catch (aiErr) {
+      // Bước 4 (nhánh lỗi): timeout / mất mạng / AI báo lỗi
+      console.error("Lỗi gọi AI tư vấn:", aiErr.message);
+      return res.status(503).json({ message: THONG_BAO_AI_LOI });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(aiResponse.text);
+    } catch (parseErr) {
+      console.error("Lỗi parse phản hồi AI:", parseErr.message);
+      return res.status(503).json({ message: THONG_BAO_AI_LOI });
+    }
+
+    const monMap = {};
+    for (const f of foods) monMap[f.ma_mon_an] = f;
+
+    // Chỉ giữ lại món có thật trong thực đơn — chống AI bịa món không tồn tại
+    const goiYHopLe = (Array.isArray(parsed.goi_y) ? parsed.goi_y : [])
+      .map((id) => monMap[id])
+      .filter(Boolean)
+      .slice(0, 5);
+
+    if (goiYHopLe.length === 0) {
+      return res.status(503).json({ message: THONG_BAO_AI_LOI });
+    }
+
+    // Bước 4 (nhánh thành công) + Bước 5: trả gợi ý kèm đủ thông tin để FE hiện thẻ món
+    res.json({
+      tra_loi: typeof parsed.tra_loi === "string" ? parsed.tra_loi : "",
+      goi_y: goiYHopLe,
+    });
+  } catch (err) {
+    console.error("Lỗi suggestFood:", err.message);
+    res.status(503).json({ message: THONG_BAO_AI_LOI });
+  }
+};
+
 module.exports = {
   getQrSession,
   getQrBill,
   submitQrOrder,
   cancelQrOrder,
+  suggestFood,
 };

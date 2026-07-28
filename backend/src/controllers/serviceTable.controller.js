@@ -9,13 +9,21 @@ const taoMaPhien = () =>
 // GET /api/service/tables — sơ đồ bàn toàn quán, kèm hóa đơn hiện hành
 const getTablesMap = async (req, res) => {
   try {
+    // Phòng thủ: nếu dữ liệu có bị kẹt (vd 2 hóa đơn "sống" cùng lúc do bug/
+    // thao tác thủ công) thì cũng chỉ lấy đúng 1 hóa đơn mới nhất/bàn — không
+    // bao giờ để 1 bàn hiện ra 2 lần trên sơ đồ.
     const [rows] = await pool.query(`
             SELECT b.ma_ban, b.ten_ban, b.ma_khu_vuc, kv.ten_khu_vuc,
             b.so_ghe,b.trang_thai, b.qr_code_dinh_danh,
-            hd.ma_hoa_don,hd.thoi_gian_mo_ban
+            hd.ma_hoa_don,hd.thoi_gian_mo_ban, hd.trang_thai AS trang_thai_hoa_don
             FROM BAN b
             JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
-            LEFT JOIN HOA_DON hd ON b.ma_ban= hd.ma_ban AND hd.trang_thai='Dang_phuc_vu'
+            LEFT JOIN HOA_DON hd ON hd.ma_hoa_don = (
+              SELECT hd2.ma_hoa_don FROM HOA_DON hd2
+              WHERE hd2.ma_ban = b.ma_ban
+                AND hd2.trang_thai IN ('Dang_phuc_vu','Cho_thanh_toan')
+              ORDER BY hd2.ma_hoa_don DESC LIMIT 1
+            )
             ORDER BY kv.ma_khu_vuc, b.ma_ban
             `);
     res.json(rows);

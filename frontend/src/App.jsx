@@ -21,6 +21,7 @@ import WarehousePage from "./pages/admin/WarehousePage";
 import SupplierPage from "./pages/admin/SupplierPage";
 import EmployeePage from "./pages/admin/EmployeePage";
 import RevenuePage from "./pages/admin/RevenuePage";
+import ForecastPage from "./pages/admin/ForecastPage"; // MOCK — xoá khi triển khai module AI dự báo thật
 import OrderPage from "./pages/server/OrderPage";
 // Server pages
 import TableMapPage from "./pages/server/TableMapPage";
@@ -68,6 +69,7 @@ function App() {
             <Route path="suppliers" element={<SupplierPage />} />
             <Route path="employees" element={<EmployeePage />} />
             <Route path="revenue" element={<RevenuePage />} />
+            <Route path="forecast" element={<ForecastPage />} />
           </Route>
 
           {/* Khu vực Phục vụ */}
