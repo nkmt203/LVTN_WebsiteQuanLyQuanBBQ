@@ -8,8 +8,10 @@ const FORECAST_SERVICE_URL =
 const getForecast = async (req, res) => {
   const soNgay = req.query.so_ngay || 7;
 
+  // 45s vì gói Free của Render có thể "ngủ" service sau ~15 phút không dùng,
+  // lần gọi đầu tiên sau đó cần vài chục giây để "thức dậy".
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 45000);
 
   try {
     const resp = await fetch(
