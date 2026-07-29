@@ -77,6 +77,18 @@ def chay_du_bao(so_ngay):
             du_kien_can = _du_bao_theo_trung_binh(chuoi_ngay, so_ngay)
 
         ton_hien_tai = float(nl["ton_hien_tai"])
+        muc_ton_toi_thieu = float(nl["muc_ton_toi_thieu"])
+        so_diem_lich_su = len(chuoi_ngay)
+
+        if so_diem_lich_su > 0:
+            # Có dữ liệu thật (dù ít) vẫn là tín hiệu tốt hơn không có gì
+            # -> tin vào so sánh tồn kho với nhu cầu dự kiến
+            can_nhap_them = ton_hien_tai - du_kien_can < 0
+        else:
+            # Hoàn toàn chưa có lịch sử (du_kien_can chắc chắn = 0, vô nghĩa)
+            # -> dựa vào mức tồn tối thiểu đã cấu hình sẵn trong kho
+            can_nhap_them = ton_hien_tai <= muc_ton_toi_thieu
+
         ket_qua.append(
             {
                 "ma_nguyen_lieu": ma,
@@ -86,7 +98,8 @@ def chay_du_bao(so_ngay):
                 "da_tieu_thu": da_tieu_thu_gan_day,
                 "du_kien_can": du_kien_can,
                 "chenh_lech": round(ton_hien_tai - du_kien_can, 1),
-                "so_diem_lich_su": len(chuoi_ngay),
+                "can_nhap_them": can_nhap_them,
+                "so_diem_lich_su": so_diem_lich_su,
             }
         )
 

@@ -364,10 +364,21 @@ CREATE TABLE NHAT_KY_HAO_HUT (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
--- SEED DATA: VAI_TRO mặc định
+-- SEED DATA: VAI_TRO + TAI_KHOAN mặc định
+-- Luôn có sẵn dù không chạy file seed dữ liệu mẫu riêng.
+-- Mật khẩu tất cả tài khoản: 1
 -- ============================================================
-INSERT INTO VAI_TRO (ten_vai_tro, mo_ta) VALUES
-  ('Admin', 'Quản trị hệ thống'),
-  ('Phuc_vu', 'Nhân viên phục vụ'),
-  ('Bep', 'Nhân viên bếp'),
-  ('Thu_ngan', 'Nhân viên thu ngân');
+INSERT INTO VAI_TRO (ma_vai_tro, ten_vai_tro, mo_ta) VALUES
+  (1, 'Admin',    'Quản trị viên hệ thống'),
+  (2, 'Phuc_vu',  'Nhân viên phục vụ'),
+  (3, 'Bep',      'Nhân viên bếp'),
+  (4, 'Thu_ngan', 'Nhân viên thu ngân');
+
+INSERT INTO TAI_KHOAN (ma_tai_khoan, ten_dang_nhap, mat_khau_hash, ma_vai_tro, trang_thai) VALUES
+  (1, 'admin',    '$2b$10$2ulY06A2C2ndKV/seEZio.UnsCNTkpAtyvr4BSPjQ.necyhy7ubpm', 1, 'Hoat_dong'),
+  (2, 'phucvu',   '$2b$10$2ulY06A2C2ndKV/seEZio.UnsCNTkpAtyvr4BSPjQ.necyhy7ubpm', 2, 'Hoat_dong'),
+  (3, 'bep',      '$2b$10$2ulY06A2C2ndKV/seEZio.UnsCNTkpAtyvr4BSPjQ.necyhy7ubpm', 3, 'Hoat_dong'),
+  (4, 'thungan',  '$2b$10$2ulY06A2C2ndKV/seEZio.UnsCNTkpAtyvr4BSPjQ.necyhy7ubpm', 4, 'Hoat_dong');
+
+ALTER TABLE VAI_TRO   AUTO_INCREMENT = 5;
+ALTER TABLE TAI_KHOAN AUTO_INCREMENT = 5;
