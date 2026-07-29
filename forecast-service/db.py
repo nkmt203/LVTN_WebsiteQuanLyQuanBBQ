@@ -6,12 +6,18 @@ load_dotenv()
 
 
 def get_connection():
+    # DB_SSL_CA_PATH chỉ có khi dùng DB online (Aiven, bắt buộc SSL).
+    # Chạy WAMP local thì không set biến này, bỏ qua ssl như trước giờ.
+    ssl_ca = os.getenv("DB_SSL_CA_PATH")
+    kwargs = {"ssl_ca": ssl_ca} if ssl_ca else {}
+
     return mysql.connector.connect(
         host=os.getenv("DB_HOST", "localhost"),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME"),
         port=int(os.getenv("DB_PORT", "3306")),
+        **kwargs,
     )
 
 
