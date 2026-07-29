@@ -30,7 +30,8 @@ def lay_danh_sach_nguyen_lieu():
             """
             SELECT nl.ma_nguyen_lieu, nl.ten_nguyen_lieu,
                    dvt.ten_don_vi_tinh,
-                   COALESCE(k.so_luong_ton, 0) AS ton_hien_tai
+                   COALESCE(k.so_luong_ton, 0) AS ton_hien_tai,
+                   COALESCE(k.muc_ton_toi_thieu, 0) AS muc_ton_toi_thieu
             FROM NGUYEN_LIEU nl
             JOIN DON_VI_TINH dvt ON nl.ma_don_vi_tinh = dvt.ma_don_vi_tinh
             LEFT JOIN KHO_NGUYEN_LIEU k ON nl.ma_nguyen_lieu = k.ma_nguyen_lieu

@@ -55,7 +55,7 @@ function ForecastPage() {
     }
   };
 
-  const soCanNhapThem = ketQua ? ketQua.filter((d) => d.chenh_lech < 0).length : 0;
+  const soCanNhapThem = ketQua ? ketQua.filter((d) => d.can_nhap_them).length : 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -171,7 +171,7 @@ function ForecastPage() {
               </thead>
               <tbody>
                 {ketQua.map((ing) => {
-                  const thieu = ing.chenh_lech < 0;
+                  const thieu = ing.can_nhap_them;
                   return (
                     <tr key={ing.ma_nguyen_lieu} className="border-t border-stone-100">
                       <td className="px-3 py-2 text-stone-800">{ing.ten_nguyen_lieu}</td>
