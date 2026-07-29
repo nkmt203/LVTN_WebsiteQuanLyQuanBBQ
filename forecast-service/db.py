@@ -31,9 +31,9 @@ def lay_danh_sach_nguyen_lieu():
             SELECT nl.ma_nguyen_lieu, nl.ten_nguyen_lieu,
                    dvt.ten_don_vi_tinh,
                    COALESCE(k.so_luong_ton, 0) AS ton_hien_tai
-            FROM nguyen_lieu nl
-            JOIN don_vi_tinh dvt ON nl.ma_don_vi_tinh = dvt.ma_don_vi_tinh
-            LEFT JOIN kho_nguyen_lieu k ON nl.ma_nguyen_lieu = k.ma_nguyen_lieu
+            FROM NGUYEN_LIEU nl
+            JOIN DON_VI_TINH dvt ON nl.ma_don_vi_tinh = dvt.ma_don_vi_tinh
+            LEFT JOIN KHO_NGUYEN_LIEU k ON nl.ma_nguyen_lieu = k.ma_nguyen_lieu
             WHERE nl.trang_thai = 'Hoat_dong'
             """
         )
@@ -56,8 +56,8 @@ def lay_lich_su_tieu_thu():
             SELECT dm.ma_nguyen_lieu,
                    DATE(ct.thoi_gian_hoan_thanh) AS ngay,
                    SUM(ct.so_luong * dm.so_luong_su_dung) AS so_luong_tieu_thu
-            FROM chi_tiet_hoa_don ct
-            JOIN dinh_muc_nguyen_lieu dm
+            FROM CHI_TIET_HOA_DON ct
+            JOIN DINH_MUC_NGUYEN_LIEU dm
               ON ct.ma_mon_an = dm.ma_mon_an AND dm.trang_thai = 'Hoat_dong'
             WHERE ct.trang_thai = 'Da_hoan_thanh'
               AND ct.thoi_gian_hoan_thanh IS NOT NULL
