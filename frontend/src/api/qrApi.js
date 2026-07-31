@@ -1,8 +1,7 @@
 import axios from "axios";
 import { BASE_URL } from "./apiConfig";
 
-// Client riêng cho khách quét QR — không gắn JWT tài khoản nhân viên (interceptor
-// của axiosClient), xác thực bằng phien_token của bàn thay vào đó.
+
 const qrClient = axios.create({ baseURL: BASE_URL });
 
 export const getQrSession = (qrCode) =>

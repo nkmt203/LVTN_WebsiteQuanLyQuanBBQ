@@ -24,7 +24,7 @@ const getAllFood = async (req, res) => {
     const conditions = [];
     const params = [];
     if (keyword) {
-      conditions.push("(m.ten_mon_an LIKE ? OR m.ma_mon_an = ?)"); // tìm theo tên HOẶC mã
+      conditions.push("(m.ten_mon_an LIKE ? OR m.ma_mon_an = ?)");
       params.push(`%${keyword}%`, Number(keyword) || 0);
     }
     if (maDanhMuc) {
@@ -39,14 +39,13 @@ const getAllFood = async (req, res) => {
       ? "WHERE " + conditions.join(" AND ")
       : "";
 
-    // Đếm tổng số bản ghi
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM MON_AN m ${dieuKien}`,
       params,
     );
     const total = countRows[0].total;
 
-    // Lấy dữ liệu của đúng trang hiện tại. limit/offset là số nguyên đã validate nên chèn thẳng an toàn.
+    // limit/offset là số nguyên đã validate nên chèn thẳng vào SQL an toàn
     const [rows] = await pool.query(
       `SELECT m.ma_mon_an, m.ten_mon_an, m.ma_danh_muc, d.ten_danh_muc,
               m.gia_ban, m.mo_ta, m.hinh_anh_url, m.trang_thai
@@ -261,7 +260,6 @@ const deleteFood = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy món ăn" });
     const anh = rows[0].hinh_anh_url;
 
-    // Kiểm tra món có nằm trong đơn gọi món (chi tiết hóa đơn) nào không
     const [refRows] = await pool.query(
       "SELECT COUNT(*) AS refs FROM CHI_TIET_HOA_DON WHERE ma_mon_an = ?",
       [id],

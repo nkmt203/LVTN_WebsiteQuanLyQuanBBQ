@@ -21,7 +21,6 @@ const kiemTraKhuVuc = async (maKhuVuc) => {
   return { ok: true };
 };
 
-// Validate dữ liệu bàn
 const validateDuLieuBan = (data) => {
   const { ten_ban, ma_khu_vuc, so_ghe } = data;
   if (!ten_ban || !ten_ban.trim() || !ma_khu_vuc) {
@@ -111,15 +110,12 @@ const createTable = async (req, res) => {
   try {
     const { ten_ban, ma_khu_vuc, so_ghe, ghi_chu } = req.body;
 
-    // 1. Validate
     const loi = validateDuLieuBan(req.body);
     if (loi) return res.status(400).json({ message: loi });
 
-    // 2. Kiểm tra khu vực
     const kvCheck = await kiemTraKhuVuc(ma_khu_vuc);
     if (!kvCheck.ok) return res.status(400).json({ message: kvCheck.message });
 
-    // 2b. Kiểm tra trùng tên bàn
     const [trung] = await pool.query(
       "SELECT ma_ban FROM BAN WHERE ten_ban = ?",
       [ten_ban.trim()],
@@ -128,7 +124,6 @@ const createTable = async (req, res) => {
       return res.status(409).json({ message: "Tên bàn đã tồn tại" });
     }
 
-    // 3. Sinh QR duy nhất
     let qr;
     for (let i = 0; i < 5; i++) {
       qr = taoMaQR();
@@ -143,7 +138,6 @@ const createTable = async (req, res) => {
           .json({ message: "Không thể sinh mã QR duy nhất" });
     }
 
-    // 4. Insert
     const [result] = await pool.query(
       `INSERT INTO BAN (ten_ban, ma_khu_vuc, so_ghe, qr_code_dinh_danh, ghi_chu)
        VALUES (?, ?, ?, ?, ?)`,
@@ -161,22 +155,19 @@ const createTable = async (req, res) => {
   }
 };
 
-// PUT /api/tables/:id — cập nhật thông tin bàn (không đổi trạng thái tại đây —
-// trạng thái do nghiệp vụ mở/hủy/chuyển bàn của phục vụ quản lý)
+// PUT /api/tables/:id — cập nhật thông tin bàn
 const updateTable = async (req, res) => {
   try {
     const { id } = req.params;
     const { ten_ban, ma_khu_vuc, so_ghe, ghi_chu } = req.body;
 
-    // 1. Validate
     const loi = validateDuLieuBan(req.body);
     if (loi) return res.status(400).json({ message: loi });
 
-    // 2. Kiểm tra khu vực
     const kvCheck = await kiemTraKhuVuc(ma_khu_vuc);
     if (!kvCheck.ok) return res.status(400).json({ message: kvCheck.message });
 
-    // 2b. Kiểm tra trùng tên bàn (loại trừ chính bàn đang sửa)
+    // Loại trừ chính bàn đang sửa khỏi kiểm tra trùng tên
     const [trung] = await pool.query(
       "SELECT ma_ban FROM BAN WHERE ten_ban = ? AND ma_ban != ?",
       [ten_ban.trim(), id],
@@ -185,7 +176,6 @@ const updateTable = async (req, res) => {
       return res.status(409).json({ message: "Tên bàn đã tồn tại" });
     }
 
-    // 3. Update
     const [result] = await pool.query(
       `UPDATE BAN SET ten_ban = ?, ma_khu_vuc = ?, so_ghe = ?, ghi_chu = ?
        WHERE ma_ban = ?`,

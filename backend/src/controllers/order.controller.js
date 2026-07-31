@@ -1,11 +1,6 @@
 const pool = require("../config/db");
 const bus = require("../events/socketBus");
 
-// Thời gian ân hạn sau khi NV bấm "Xác nhận" món gọi qua QR (nghiệp vụ 2.3.1.11.a
-// Bước 6): trong 15s này khách/NV vẫn có thể hủy — DB vẫn giữ "Cho_xac_nhan" nên
-// endpoint hủy hiện có (cancelOrderItem / QR self-cancel) tự động áp dụng được,
-// không cần thêm trạng thái DB mới. Hết 15s không bị hủy -> tự chuyển
-// "Dang_che_bien", gán ma_nv_xac_nhan, báo bếp.
 const GRACE_MS = 15000;
 const graceTimers = new Map(); // ma_chi_tiet_hd -> Timeout, dùng để hủy được giữa chừng
 
@@ -71,14 +66,12 @@ const getBillByTable = async (req, res) => {
 };
 
 // POST /api/orders — gửi BATCH nhiều món vào hoá đơn (nghiệp vụ 2.3.1.11.b)
-// Body: { ma_hoa_don, items: [{ ma_mon_an, so_luong, ghi_chu }] }
 const addOrderItems = async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const { ma_hoa_don, items } = req.body;
     const ma_nhan_vien = req.user.ma_nhan_vien;
 
-    //1. validate
     if (!ma_hoa_don || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: "Vui lòng chọn ít nhất 1 món" });
     }
@@ -91,7 +84,6 @@ const addOrderItems = async (req, res) => {
     }
     await conn.beginTransaction();
 
-    //2. kiểm tra hđ đang phục vụ
     const [hdRows] = await conn.query(
       `
         SELECT hd.trang_thai,hd.ma_ban, b.ten_ban
@@ -107,7 +99,7 @@ const addOrderItems = async (req, res) => {
         .json({ message: "Hoá đơn không tồn tại hoặc đã đóng" });
     }
 
-    // 3. Kiểm tra bàn KHÔNG có yêu cầu QR đang chờ xác nhận (nghiệp vụ 2.3.1.11.b bước 2)
+    // Kiểm tra bàn KHÔNG có yêu cầu QR đang chờ xác nhận (nghiệp vụ 2.3.1.11.b)
     const [choXN] = await conn.query(
       `SELECT COUNT(*) AS soChoXN FROM CHI_TIET_HOA_DON
        WHERE ma_hoa_don = ? AND trang_thai = 'Cho_xac_nhan'`,
@@ -121,7 +113,6 @@ const addOrderItems = async (req, res) => {
       });
     }
 
-    //4. Lấy thông tin tất cả món ăn cùng lúc
     const monIds = items.map((i) => i.ma_mon_an);
     const [monRows] = await conn.query(
       `
@@ -132,7 +123,6 @@ const addOrderItems = async (req, res) => {
     const monMap = {};
     for (const m of monRows) monMap[m.ma_mon_an] = m;
 
-    // Validate: tất cả món phải tồn tại và đang kinh doanh
     for (const item of items) {
       const mon = monMap[item.ma_mon_an];
       if (!mon) {
@@ -149,13 +139,6 @@ const addOrderItems = async (req, res) => {
       }
     }
 
-    // 5. Luôn tạo DÒNG MỚI cho từng món trong đợt gửi này, ghi ma_nv_xac_nhan cho dòng đó
-    // (nghiệp vụ 2.3.1.11.c Trường hợp 3): kể cả khi món này đã có 1 dòng khác
-    // đang "Đang chế biến" trong cùng hóa đơn, KHÔNG cộng dồn vào dòng cũ — mỗi
-    // đợt gửi bếp là 1 vé riêng biệt, tránh sai sót khi vận hành (bếp có thể
-    // nhầm lẫn số lượng/thời điểm nếu 2 đợt gọi món bị gộp chung 1 dòng).
-    // Toàn bộ món trong CÙNG 1 đợt gửi này dùng chung 1 mốc thời gian
-    // (thay vì NOW() riêng từng dòng) để FE bếp gom được thành 1 "vé" duy nhất.
     const thoiGianDotGui = new Date();
     const insertedItems = [];
     for (const item of items) {
@@ -190,11 +173,9 @@ const addOrderItems = async (req, res) => {
         ghi_chu: item.ghi_chu || null,
       });
     }
-    //6.cập nhật tổng tiền
     await updateBillTotal(conn, ma_hoa_don);
     await conn.commit();
 
-    // 7. Emit 1 sự kiện cho bếp gồm toàn bộ batch
     bus.emit("kitchen:new-batch", {
       ma_hoa_don,
       ma_ban: hdRows[0].ma_ban,
@@ -296,7 +277,7 @@ const updateOrderItem = async (req, res) => {
   }
 };
 
-// DELETE /api/orders/:id — hủy món ĐÃ GỬI BẾP (nghiệp vụ d)
+// DELETE /api/orders/:id — hủy món ĐÃ GỬI BẾP
 const cancelOrderItem = async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -333,7 +314,7 @@ const cancelOrderItem = async (req, res) => {
         .status(409)
         .json({ message: "Món đã hoàn thành, chỉ Quản lý mới được hủy." });
     }
-    // Gộp lý do vào ghi_chu (tạm thời, chưa có cột riêng)
+    // Gộp lý do vào ghi_chu (tạm thời)
     const ghiChuMoi = (cur.ghi_chu || "") + ` [Lý do hủy: ${ly_do_huy.trim()}]`;
     await conn.query(
       `UPDATE CHI_TIET_HOA_DON SET trang_thai = 'Da_huy', ghi_chu = ?
@@ -363,9 +344,7 @@ const cancelOrderItem = async (req, res) => {
   }
 };
 
-// PATCH /api/orders/:id/confirm — NV xác nhận món khách gọi qua QR (nghiệp vụ
-// 2.3.1.11.a Bước 6). Không đổi trạng thái ngay — chỉ đặt hẹn giờ GRACE_MS,
-// hết giờ mới thật sự chuyển "Dang_che_bien" nếu không ai hủy giữa chừng.
+// PATCH /api/orders/:id/confirm — NV xác nhận món khách gọi qua QR (nghiệp vụ 2.3.1.11
 const confirmOrderItem = async (req, res) => {
   try {
     const { id } = req.params;
@@ -391,7 +370,9 @@ const confirmOrderItem = async (req, res) => {
         .json({ message: "Món này không ở trạng thái chờ xác nhận" });
     }
     if (graceTimers.has(Number(id))) {
-      return res.json({ message: "Đã xác nhận trước đó, đang chờ gửi xuống bếp" });
+      return res.json({
+        message: "Đã xác nhận trước đó, đang chờ gửi xuống bếp",
+      });
     }
 
     const timer = setTimeout(async () => {
@@ -402,7 +383,8 @@ const confirmOrderItem = async (req, res) => {
           [id],
         );
         // Đã bị hủy (khách hoặc NV) trong lúc chờ -> không làm gì thêm
-        if (check.length === 0 || check[0].trang_thai !== "Cho_xac_nhan") return;
+        if (check.length === 0 || check[0].trang_thai !== "Cho_xac_nhan")
+          return;
 
         await pool.query(
           `UPDATE CHI_TIET_HOA_DON SET trang_thai = 'Dang_che_bien', ma_nv_xac_nhan = ?,
@@ -444,8 +426,7 @@ const confirmOrderItem = async (req, res) => {
 };
 
 // PATCH /api/orders/:id/reject — NV từ chối món khách gọi qua QR (nghiệp vụ
-// 2.3.1.11.a Bước 6, nhánh từ chối) — xóa hẳn yêu cầu, không cần lý do vì
-// khách chưa từng thấy món này được xác nhận.
+// 2.3.1.11.a Bước 6, nhánh từ chối) — xóa hẳn yêu cầu
 const rejectOrderItem = async (req, res) => {
   try {
     const { id } = req.params;
@@ -470,7 +451,9 @@ const rejectOrderItem = async (req, res) => {
       clearTimeout(graceTimers.get(Number(id)));
       graceTimers.delete(Number(id));
     }
-    await pool.query(`DELETE FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd = ?`, [id]);
+    await pool.query(`DELETE FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd = ?`, [
+      id,
+    ]);
 
     bus.emit("qr:order-rejected", {
       ma_ban: rows[0].ma_ban,
@@ -508,7 +491,6 @@ const requestPayment = async (req, res) => {
       });
     }
 
-    // Kiểm tra: mọi món phải đã Da_hoan_thanh hoặc Da_huy
     const [chuaXong] = await conn.query(
       `SELECT COUNT(*) AS so_mon FROM CHI_TIET_HOA_DON
        WHERE ma_hoa_don = ? AND trang_thai IN ('Cho_xac_nhan', 'Dang_che_bien')`,
@@ -521,7 +503,6 @@ const requestPayment = async (req, res) => {
       });
     }
 
-    // Kiểm tra: mọi món hủy phải đã được bếp tiếp nhận
     const [huyChuaTiep] = await conn.query(
       `SELECT COUNT(*) AS so_mon FROM CHI_TIET_HOA_DON
        WHERE ma_hoa_don = ? AND trang_thai = 'Da_huy'
@@ -535,7 +516,6 @@ const requestPayment = async (req, res) => {
       });
     }
 
-    // Chuyển sang Cho_thanh_toan
     await conn.query(
       `UPDATE HOA_DON SET trang_thai = 'Cho_thanh_toan' WHERE ma_hoa_don = ?`,
       [id],

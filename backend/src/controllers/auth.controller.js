@@ -4,7 +4,6 @@ const pool = require("../config/db");
 const { SECRET, EXPIRES_IN } = require("../config/jwt");
 const { requireProfile } = require("../middlewares/auth.middleware");
 
-//Tạo jwt từ data
 function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
 }
@@ -41,7 +40,6 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Đăng nhập thất bại" });
     }
 
-    // so sánh pass
     const ok = await bcrypt.compare(mat_khau, tk.mat_khau_hash);
     if (!ok) {
       return res.status(401).json({ message: "Đăng nhập thất bại" });
@@ -64,7 +62,6 @@ const login = async (req, res) => {
       }
     }
 
-    //Ký token
     const payload = {
       ma_tai_khoan: tk.ma_tai_khoan,
       ten_dang_nhap: tk.ten_dang_nhap,
@@ -116,7 +113,6 @@ const selectProfile = async (req, res) => {
       return res.status(400).json({ message: "Vui lòng chọn hồ sơ nhân viên" });
     }
 
-    //XÁc thực hồ sơ
     const [rows] = await pool.query(
       `
       SELECT ma_nhan_vien, ho_ten FROM NHAN_VIEN

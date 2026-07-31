@@ -9,7 +9,7 @@ from forecast import chay_du_bao
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # cho phép gọi trực tiếp khi cần test độc lập; luồng chính thức đi qua backend Node
+CORS(app)
 
 
 @app.get("/health")

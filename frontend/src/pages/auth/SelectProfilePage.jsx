@@ -8,7 +8,7 @@ const roleToPath = {
   Admin: "/admin/food",
   Phuc_vu: "/server/tables",
   Bep: "/kitchen", //
-  Thu_ngan: "/cashier/bills", // chưa làm, Tin 4
+  Thu_ngan: "/cashier/bills",
 };
 
 const roleLabel = {

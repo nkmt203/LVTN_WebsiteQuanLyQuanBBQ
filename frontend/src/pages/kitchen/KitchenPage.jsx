@@ -5,10 +5,9 @@ import { getErrorMessage } from '../../api/errorHandler';
 import { SERVER_URL } from '../../api/apiConfig';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 
-const POLL_INTERVAL_MS = 5000; // Auto refresh 5 giây (dự phòng, phòng khi socket mất kết nối)
+const POLL_INTERVAL_MS = 5000;
 
-// Các sự kiện realtime liên quan tới bếp — bắn từ addOrderItems/updateOrderItem/
-// cancelOrderItem (order.controller.js) và transferTable (serviceTable.controller.js)
+// Các sự kiện realtime liên quan tới bếp 
 const KITCHEN_EVENTS = [
   'kitchen:new-batch',
   'kitchen:update-qty',
@@ -19,7 +18,7 @@ const KITCHEN_EVENTS = [
 function KitchenPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
+  const [feedback, setFeedback] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [confirmState, setConfirmState] = useState(null);
   // { title, description, confirmText, onConfirm }
@@ -91,8 +90,6 @@ function KitchenPage() {
   };
 
   // ===== NHÓM ORDER THEO BÀN =====
-  // Do BE đã ORDER BY thời điểm gọi món sớm nhất của hóa đơn (FIFO),
-  // ta chỉ cần push theo thứ tự đến, các bàn tự động xếp đúng thứ tự
   const groupedByTable = orders.reduce((acc, item) => {
     const key = `${item.ma_hoa_don}`;
     if (!acc[key]) {
@@ -109,7 +106,7 @@ function KitchenPage() {
   }, {});
   const tables = Object.values(groupedByTable);
 
-  // Món đã "xong việc" với bếp: hoàn thành, hoặc hủy mà bếp đã tiếp nhận (BEP_OK)
+  // Món đã "xong" với bếp: hoàn thành, hoặc hủy mà bếp đã tiếp nhận (BEP_OK)
   const isItemFinal = (item) =>
     item.trang_thai === 'Da_hoan_thanh' ||
     (item.trang_thai === 'Da_huy' && item.ghi_chu?.includes('[BEP_OK]'));
@@ -117,7 +114,6 @@ function KitchenPage() {
   // Đếm chỉ món chưa hoàn thành / chưa được bếp tiếp nhận hủy để hiện tổng ở header
   const activeItems = orders.filter((i) => !isItemFinal(i));
   // Bill còn món cần xử lý (chưa hoàn thành hoặc còn yêu cầu hủy chưa tiếp nhận)
-  // -> bill đã xong hết món (mọi món đều hoàn thành/hủy đã tiếp nhận) sẽ tự ẩn khỏi lưới chính
   const activeTables = tables.filter((t) => t.items.some((i) => !isItemFinal(i)));
 
   if (loading) return <p className="text-sm text-stone-500 p-4">Đang tải...</p>;
@@ -207,8 +203,6 @@ const KitchenHeader = ({ totalTables, totalItems, lastRefresh, onRefresh }) => (
 );
 
 // Nhóm các món trong 1 bill theo đợt gửi bếp (cùng thoi_gian_goi_mon = cùng 1 lần
-// bấm "Xác nhận gửi bếp" của phục vụ) -> mỗi đợt hiện thành 1 "vé" riêng biệt,
-// chỉ chung bàn/số bill với các đợt khác.
 const groupByBatch = (items) => {
   const map = new Map();
   for (const item of items) {
@@ -228,8 +222,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
   const mainItems = table.items.filter((i) =>
     !(i.trang_thai === 'Da_huy' && i.ghi_chu?.includes('[BEP_OK]'))
   );
-  // Món đã hoàn thành gộp lại ẩn mặc định (bill dài không bị choán chỗ bởi
-  // những món đã xong việc); chỉ còn món đang cần xử lý hiện ngay trong vé.
+  // Món đã hoàn thành gộp lại ẩn mặc định
   const activeItems = mainItems.filter((i) => i.trang_thai !== 'Da_hoan_thanh');
   const doneItems = mainItems.filter((i) => i.trang_thai === 'Da_hoan_thanh');
   const batches = groupByBatch(activeItems);
@@ -269,7 +262,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
         </div>
       </div>
 
-      {/* Thân vé — cuộn riêng bên trong khi bill quá dài, giữ chiều cao thẻ đồng đều trên lưới */}
+      {/* Thân vé , giữ chiều cao thẻ đồng đều trên lưới */}
       <div className="max-h-96 overflow-y-auto">
         {/* Bill chính — mỗi đợt gửi bếp hiện thành 1 "vé" riêng, phân cách bằng đường đứt nét */}
         {batches.map((batch, idx) => (

@@ -35,7 +35,7 @@ function QrOrderPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState(null); // { tra_loi, goi_y } | { error }
+  const [aiResult, setAiResult] = useState(null); 
 
   // ===== LOAD PHIÊN + THỰC ĐƠN (Bước 1) =====
   useEffect(() => {
@@ -133,7 +133,7 @@ function QrOrderPage() {
     }
   };
 
-  // ===== HỦY YÊU CẦU ĐANG CHỜ XÁC NHẬN (Bước 2.1) =====
+  // ===== HỦY YÊU CẦU ĐANG CHỜ XÁC NHẬN =====
   const handleCancelPending = async () => {
     await cancelQrOrder(qrCode, session.phien_token);
     setConfirmCancelOpen(false);
@@ -141,7 +141,7 @@ function QrOrderPage() {
     await loadBill(session.phien_token);
   };
 
-  // ===== HỎI AI TƯ VẤN MÓN ĂN (Bước 1-6) =====
+  // ===== HỎI AI TƯ VẤN MÓN ĂN  =====
   const handleAskAi = async () => {
     const cauHoi = aiInput.trim();
     if (!cauHoi) return; // Bước 2: rỗng thì không gửi, giữ nguyên Bước 1
@@ -151,7 +151,7 @@ function QrOrderPage() {
       const r = await getAiSuggestion(qrCode, session.phien_token, cauHoi);
       setAiResult({ tra_loi: r.tra_loi, goi_y: r.goi_y });
     } catch (err) {
-      // Bước 4 nhánh lỗi: quá 10s / mất mạng / AI lỗi — BE đã trả đúng câu thông báo chuẩn
+     // AI lỗi — BE đã trả đúng câu thông báo 
       setAiResult({ error: getErrorMessage(err) });
     } finally {
       setAiLoading(false);

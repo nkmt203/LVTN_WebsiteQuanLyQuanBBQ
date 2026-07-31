@@ -100,9 +100,6 @@ function OrderPage() {
     socket.on("qr:new-request", (p) => {
       if (String(p.ma_ban) === String(tableId)) loadBill();
     });
-    // Hết 15s ân hạn sau khi NV bấm "Xác nhận" (nghiệp vụ 2.3.1.11.a Bước 6):
-    // món tự động chuyển "Đang chế biến" và được gửi xuống bếp — báo cho NV biết
-    // để không tưởng nhầm là bấm xác nhận chưa có tác dụng.
     socket.on("qr:order-confirmed", (p) => {
       if (String(p.ma_ban) === String(tableId)) {
         setFeedback({ type: "success", text: "Món đã được gửi xuống bếp." });
@@ -133,7 +130,7 @@ function OrderPage() {
       return [
         ...prev,
         {
-          _tmp_id: Date.now() + Math.random(), // key React
+          _tmp_id: Date.now() + Math.random(), 
           ma_mon_an: mon.ma_mon_an,
           ten_mon_an: mon.ten_mon_an,
           gia_ban: mon.gia_ban,
@@ -841,7 +838,6 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
     }
     // Ghi lý do thực vào state trước khi confirm
     setReason(finalReason);
-    // Delay 1 tick cho setState kịp trước khi gọi confirm
     setTimeout(onConfirm, 0);
   };
 

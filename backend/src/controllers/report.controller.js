@@ -1,15 +1,14 @@
 const pool = require("../config/db");
 
 // GET /api/reports/sales-history — lịch sử bán hàng theo ngày/món
-// Query: ?tu_ngay=YYYY-MM-DD&den_ngay=YYYY-MM-DD (mặc định: 30 ngày gần nhất)
-// Dữ liệu thô này phục vụ phân hệ AI dự báo nhu cầu nguyên liệu (2.3.1.15) —
-// chỉ tổng hợp từ hóa đơn đã thanh toán, không bao gồm món đã hủy.
 const getSalesHistory = async (req, res) => {
   try {
     const denNgay = req.query.den_ngay || new Date().toISOString().slice(0, 10);
     const tuNgay =
       req.query.tu_ngay ||
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
 
     const [rows] = await pool.query(
       `SELECT DATE(hd.thoi_gian_dong_ban) AS ngay,
@@ -35,14 +34,14 @@ const getSalesHistory = async (req, res) => {
 };
 
 // GET /api/reports/ingredient-consumption — lịch sử tiêu thụ nguyên liệu theo ngày
-// Suy ra từ định mức nguyên liệu x số lượng món đã bán (Da_thanh_toan), cùng
-// dữ liệu nguồn cho AI dự báo nhu cầu nguyên liệu (2.3.1.15).
 const getIngredientConsumption = async (req, res) => {
   try {
     const denNgay = req.query.den_ngay || new Date().toISOString().slice(0, 10);
     const tuNgay =
       req.query.tu_ngay ||
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
 
     const [rows] = await pool.query(
       `SELECT DATE(hd.thoi_gian_dong_ban) AS ngay,

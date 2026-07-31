@@ -231,9 +231,7 @@ function EmployeePage() {
         open={formOpen}
         onClose={closeForm}
         title={
-          editingId === null
-            ? "Thêm nhân viên"
-            : `Sửa nhân viên #${editingId}`
+          editingId === null ? "Thêm nhân viên" : `Sửa nhân viên #${editingId}`
         }
       >
         <EmployeeForm

@@ -149,7 +149,6 @@ const payBill = async (req, res) => {
 
     await conn.beginTransaction();
 
-    // Khóa dòng hóa đơn
     const [hdRows] = await conn.query(
       `SELECT trang_thai, ma_ban, tong_tien_thanh_toan
        FROM HOA_DON WHERE ma_hoa_don = ? FOR UPDATE`,
@@ -192,7 +191,6 @@ const payBill = async (req, res) => {
       });
     }
 
-    // Cập nhật hóa đơn
     await conn.query(
       `UPDATE HOA_DON
        SET trang_thai = 'Da_thanh_toan',
@@ -203,7 +201,6 @@ const payBill = async (req, res) => {
       [hinh_thuc_thanh_toan, ma_nhan_vien, id]
     );
 
-    // Đóng bàn: trả về Trống, xóa phiên
     await conn.query(
       `UPDATE BAN SET trang_thai = 'Trong', phien_token_hien_tai = NULL
        WHERE ma_ban = ?`,
