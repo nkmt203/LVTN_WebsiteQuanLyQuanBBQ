@@ -52,7 +52,7 @@ const getAllRecipes = async (req, res) => {
         JOIN NGUYEN_LIEU nl ON dm.ma_nguyen_lieu = nl.ma_nguyen_lieu
         JOIN DON_VI_TINH dvt ON nl.ma_don_vi_tinh= dvt.ma_don_vi_tinh
         ${dieuKien}
-        ORDER BY m.ten_mon_an DESC , nl.ten_nguyen_lieu DESC
+        ORDER BY m.ten_mon_an ASC, nl.ten_nguyen_lieu ASC
         LIMIT ${limit} OFFSET ${offset}
         `,
       params,
@@ -105,7 +105,6 @@ const createRecipes = async (req, res) => {
       });
     }
 
-    //xác thực từng dòng
     for (const item of items) {
       if (
         !item.ma_nguyen_lieu ||
@@ -118,7 +117,6 @@ const createRecipes = async (req, res) => {
       }
     }
 
-    //Kiểm tra trùng nl
     const nlDung = items.map((i) => i.ma_nguyen_lieu);
     if (new Set(nlDung).size !== nlDung.length) {
       return res.status(400).json({
@@ -126,7 +124,6 @@ const createRecipes = async (req, res) => {
       });
     }
 
-    //Kiểm tra món ăn tồn tại
     const [foodCheck] = await pool.query(
       `
       SELECT trang_thai FROM MON_AN WHERE ma_mon_an=?
@@ -142,7 +139,6 @@ const createRecipes = async (req, res) => {
       });
     }
 
-    //Kiểm tra all nguyên liệu tôn tại hoạt động
     const nlArr = items.map((i) => i.ma_nguyen_lieu);
     const [nlCheck] = await pool.query(
       `

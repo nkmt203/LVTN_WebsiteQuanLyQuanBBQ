@@ -120,7 +120,6 @@ const updateCategoryStatus = async (req, res) => {
       return res.status(400).json({ message: "Trạng thái không hợp lệ" });
     }
 
-    //Kiểm tra danh mục
     const [rows] = await pool.query(
       `
       SELECT ma_danh_muc FROM DANH_MUC WHERE ma_danh_muc =?
@@ -177,7 +176,6 @@ const deleteCategory = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy danh mục" });
     }
 
-    //Đếm số món ăn có trong category
     const [countRows] = await pool.query(
       `
       SELECT COUNT(*) AS soMon FROM MON_AN WHERE ma_danh_muc=?

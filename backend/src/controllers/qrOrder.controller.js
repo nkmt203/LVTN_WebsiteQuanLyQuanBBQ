@@ -3,10 +3,14 @@ const bus = require("../events/socketBus");
 const { Type } = require("@google/genai");
 const { ai, MODEL, TIMEOUT_MS } = require("../config/ai");
 
-// Bước 2 (nghiệp vụ 2.3.1.14): lọc bỏ ký tự lạ / thẻ HTML, giới hạn 500 ký tự
 const MAX_NOI_DUNG = 500;
 const KY_TU_DIEU_KHIEN = new RegExp(
-  "[" + String.fromCharCode(0) + "-" + String.fromCharCode(31) + String.fromCharCode(127) + "]",
+  "[" +
+    String.fromCharCode(0) +
+    "-" +
+    String.fromCharCode(31) +
+    String.fromCharCode(127) +
+    "]",
   "g",
 );
 
@@ -22,7 +26,7 @@ const lamSachNoiDung = (raw) => {
 const THONG_BAO_AI_LOI =
   "Chức năng tư vấn tạm thời không khả dụng, vui lòng thử lại sau";
 
-// Kiểm tra mã QR + (tuỳ chọn) mã phiên còn hợp lệ không — dùng chung cho mọi endpoint công khai
+// Kiểm tra mã QR
 const kiemTraPhien = async (conn, qrCode, token) => {
   const [rows] = await conn.query(
     `SELECT ma_ban, ten_ban, trang_thai, phien_token_hien_tai
@@ -48,7 +52,7 @@ const kiemTraPhien = async (conn, qrCode, token) => {
   return { ok: true, ban };
 };
 
-// GET /api/qr/:qrCode — Bước 1: khách quét QR, trả về thông tin bàn + phiên + thực đơn
+// GET /api/qr/:qrCode
 const getQrSession = async (req, res) => {
   try {
     const { qrCode } = req.params;
@@ -86,8 +90,7 @@ const getQrSession = async (req, res) => {
   }
 };
 
-// GET /api/qr/:qrCode/bill?token=... — giỏ hàng hiện tại của bàn (nghiệp vụ
-// 2.3.1.11.c C1 Bước 2: hiển thị lại các món đang chờ xác nhận/đang chế biến)
+// GET /api/qr/:qrCode/bill?token= — giỏ hàng hiện tại của bàn
 const getQrBill = async (req, res) => {
   try {
     const { qrCode } = req.params;
@@ -120,9 +123,7 @@ const getQrBill = async (req, res) => {
   }
 };
 
-// POST /api/qr/:qrCode/order — khách gửi yêu cầu gọi món (nghiệp vụ 2.3.1.11.a
-// Bước 2-5, dùng chung cho cả gọi thêm món C1)
-// Body: { token, items: [{ ma_mon_an, so_luong, ghi_chu }] }
+// POST /api/qr/:qrCode/order — khách gửi yêu cầu gọi món
 const submitQrOrder = async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -134,7 +135,9 @@ const submitQrOrder = async (req, res) => {
     }
     for (const item of items) {
       if (!item.ma_mon_an || !item.so_luong || Number(item.so_luong) <= 0) {
-        return res.status(400).json({ message: "Mỗi món phải có số lượng > 0" });
+        return res
+          .status(400)
+          .json({ message: "Mỗi món phải có số lượng > 0" });
       }
     }
 
@@ -165,7 +168,9 @@ const submitQrOrder = async (req, res) => {
     );
     if (hdRows.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ message: "Bàn chưa có hóa đơn đang phục vụ" });
+      return res
+        .status(400)
+        .json({ message: "Bàn chưa có hóa đơn đang phục vụ" });
     }
     const maHoaDon = hdRows[0].ma_hoa_don;
 
@@ -178,7 +183,8 @@ const submitQrOrder = async (req, res) => {
     if (choXN[0].soChoXN > 0) {
       await conn.rollback();
       return res.status(409).json({
-        message: "Yêu cầu trước chưa được xác nhận, vui lòng đợi trong giây lát",
+        message:
+          "Yêu cầu trước chưa được xác nhận, vui lòng đợi trong giây lát",
       });
     }
 
@@ -193,7 +199,9 @@ const submitQrOrder = async (req, res) => {
       const mon = monMap[item.ma_mon_an];
       if (!mon) {
         await conn.rollback();
-        return res.status(400).json({ message: `Món ID ${item.ma_mon_an} không tồn tại` });
+        return res
+          .status(400)
+          .json({ message: `Món ID ${item.ma_mon_an} không tồn tại` });
       }
       if (mon.trang_thai !== "Dang_kinh_doanh") {
         await conn.rollback();
@@ -214,7 +222,14 @@ const submitQrOrder = async (req, res) => {
          (ma_hoa_don, ma_mon_an, so_luong, don_gia_tai_thoi_diem_goi, thanh_tien,
           ghi_chu, trang_thai, thoi_gian_goi_mon, nguon_goi_mon)
          VALUES (?,?,?,?,?,?, 'Cho_xac_nhan', NOW(), 'QR')`,
-        [maHoaDon, item.ma_mon_an, soLuong, donGia, donGia * soLuong, item.ghi_chu || null],
+        [
+          maHoaDon,
+          item.ma_mon_an,
+          soLuong,
+          donGia,
+          donGia * soLuong,
+          item.ghi_chu || null,
+        ],
       );
       insertedItems.push({
         ma_chi_tiet_hd: ins.insertId,
@@ -246,9 +261,7 @@ const submitQrOrder = async (req, res) => {
   }
 };
 
-// DELETE /api/qr/:qrCode/order — khách tự hủy TOÀN BỘ yêu cầu đang "Chờ xác nhận"
-// (nghiệp vụ 2.3.1.11.a Bước 2.1 + vẫn còn hiệu lực trong 15s ân hạn ở Bước 6 vì
-// DB chưa đổi trạng thái cho tới khi hết giờ). Body: { token }
+// DELETE /api/qr/:qrCode/order
 const cancelQrOrder = async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -278,7 +291,9 @@ const cancelQrOrder = async (req, res) => {
     );
     if (hdRows.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ message: "Bàn chưa có hóa đơn đang phục vụ" });
+      return res
+        .status(400)
+        .json({ message: "Bàn chưa có hóa đơn đang phục vụ" });
     }
 
     const [pending] = await conn.query(
@@ -289,15 +304,22 @@ const cancelQrOrder = async (req, res) => {
     if (pending.length === 0) {
       await conn.rollback();
       return res.status(409).json({
-        message: "Yêu cầu đã được nhân viên xử lý, không thể tự hủy. Vui lòng liên hệ nhân viên.",
+        message:
+          "Yêu cầu đã được nhân viên xử lý, không thể tự hủy. Vui lòng liên hệ nhân viên.",
       });
     }
 
     const ids = pending.map((r) => r.ma_chi_tiet_hd);
-    await conn.query(`DELETE FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd IN (?)`, [ids]);
+    await conn.query(
+      `DELETE FROM CHI_TIET_HOA_DON WHERE ma_chi_tiet_hd IN (?)`,
+      [ids],
+    );
     await conn.commit();
 
-    bus.emit("qr:order-self-cancelled", { ma_ban: ban.ma_ban, ma_chi_tiet_hd: ids });
+    bus.emit("qr:order-self-cancelled", {
+      ma_ban: ban.ma_ban,
+      ma_chi_tiet_hd: ids,
+    });
 
     res.json({ message: "Đã hủy yêu cầu" });
   } catch (err) {
@@ -309,8 +331,7 @@ const cancelQrOrder = async (req, res) => {
   }
 };
 
-// POST /api/qr/:qrCode/ai-suggest — nghiệp vụ 2.3.1.14 (AI tư vấn món ăn), Bước 1-6
-// Body: { token, noi_dung }
+// POST /api/qr/:qrCode/ai-suggest — nghiệp vụ 2.3.1.14 (AI tư vấn món ăn),
 const suggestFood = async (req, res) => {
   try {
     const { qrCode } = req.params;
@@ -319,7 +340,6 @@ const suggestFood = async (req, res) => {
     const check = await kiemTraPhien(pool, qrCode, token);
     if (!check.ok) return res.status(403).json({ message: check.message });
 
-    // Bước 2: làm sạch + kiểm tra nội dung yêu cầu (rỗng/quá dài -> yêu cầu nhập lại)
     const cleaned = lamSachNoiDung(noi_dung);
     if (!cleaned) {
       return res
@@ -327,9 +347,9 @@ const suggestFood = async (req, res) => {
         .json({ message: "Vui lòng nhập nội dung yêu cầu tư vấn" });
     }
     if (cleaned.length > MAX_NOI_DUNG) {
-      return res
-        .status(400)
-        .json({ message: "Nội dung yêu cầu tối đa " + MAX_NOI_DUNG + " ký tự" });
+      return res.status(400).json({
+        message: "Nội dung yêu cầu tối đa " + MAX_NOI_DUNG + " ký tự",
+      });
     }
 
     if (!ai) {
@@ -346,9 +366,18 @@ const suggestFood = async (req, res) => {
       return res.status(503).json({ message: THONG_BAO_AI_LOI });
     }
 
-    const dongMon = foods.map((f) =>
-      "#" + f.ma_mon_an + " " + f.ten_mon_an + " (" + f.ten_danh_muc + ", " +
-      Number(f.gia_ban).toLocaleString("vi-VN") + "đ) - " + (f.mo_ta || "Không có mô tả"),
+    const dongMon = foods.map(
+      (f) =>
+        "#" +
+        f.ma_mon_an +
+        " " +
+        f.ten_mon_an +
+        " (" +
+        f.ten_danh_muc +
+        ", " +
+        Number(f.gia_ban).toLocaleString("vi-VN") +
+        "đ) - " +
+        (f.mo_ta || "Không có mô tả"),
     );
     const thucDon = dongMon.join(String.fromCharCode(10));
 
@@ -401,7 +430,7 @@ Dựa vào yêu cầu của khách (sở thích, khẩu vị, số người ăn,
     const monMap = {};
     for (const f of foods) monMap[f.ma_mon_an] = f;
 
-    // Chỉ giữ lại món có thật trong thực đơn — chống AI bịa món không tồn tại
+    // Chỉ giữ lại món có thật trong thực đơn
     const goiYHopLe = (Array.isArray(parsed.goi_y) ? parsed.goi_y : [])
       .map((id) => monMap[id])
       .filter(Boolean)
@@ -411,7 +440,6 @@ Dựa vào yêu cầu của khách (sở thích, khẩu vị, số người ăn,
       return res.status(503).json({ message: THONG_BAO_AI_LOI });
     }
 
-    // Bước 4 (nhánh thành công) + Bước 5: trả gợi ý kèm đủ thông tin để FE hiện thẻ món
     res.json({
       tra_loi: typeof parsed.tra_loi === "string" ? parsed.tra_loi : "",
       goi_y: goiYHopLe,

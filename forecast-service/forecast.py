@@ -5,13 +5,10 @@ from prophet import Prophet
 
 from db import lay_danh_sach_nguyen_lieu, lay_lich_su_tieu_thu
 
-# Prophet tự log khá nhiều (cmdstanpy) — hạ mức log để không rối console
 logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 logging.getLogger("prophet").setLevel(logging.WARNING)
 
-# Số điểm dữ liệu tối thiểu để Prophet cho ra dự báo có ý nghĩa. Ít hơn mức
-# này thì fit mô hình dễ ra kết quả vô nghĩa/lỗi, nên fallback qua công thức
-# trung bình đơn giản thay vì cố chạy Prophet.
+# Số điểm dữ liệu tối thiểu để Prophet cho ra dự báo có ý nghĩa.
 SO_NGAY_TOI_THIEU = 14
 
 
@@ -81,12 +78,8 @@ def chay_du_bao(so_ngay):
         so_diem_lich_su = len(chuoi_ngay)
 
         if so_diem_lich_su > 0:
-            # Có dữ liệu thật (dù ít) vẫn là tín hiệu tốt hơn không có gì
-            # -> tin vào so sánh tồn kho với nhu cầu dự kiến
             can_nhap_them = ton_hien_tai - du_kien_can < 0
         else:
-            # Hoàn toàn chưa có lịch sử (du_kien_can chắc chắn = 0, vô nghĩa)
-            # -> dựa vào mức tồn tối thiểu đã cấu hình sẵn trong kho
             can_nhap_them = ton_hien_tai <= muc_ton_toi_thieu
 
         ket_qua.append(

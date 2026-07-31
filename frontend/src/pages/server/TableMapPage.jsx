@@ -1,36 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
-import { QrCode } from 'lucide-react';
-import { getTablesMap, openTable } from '../../api/serviceApi';
-import { getErrorMessage } from '../../api/errorHandler';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Modal from '../../components/common/Modal';
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
+import { QrCode } from "lucide-react";
+import { getTablesMap, openTable } from "../../api/serviceApi";
+import { getErrorMessage } from "../../api/errorHandler";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import Modal from "../../components/common/Modal";
 
 const POLL_INTERVAL_MS = 5000;
 
-// Mapping trạng thái sang màu và nhãn
+// trạng thái sang màu và nhãn
 const STATUS_STYLE = {
   Trong: {
-    card: 'bg-white border-stone-200 hover:border-emerald-400 hover:shadow-md',
-    dot: 'bg-emerald-500',
-    text: 'text-emerald-700',
-    label: 'Trống',
+    card: "bg-white border-stone-200 hover:border-emerald-400 hover:shadow-md",
+    dot: "bg-emerald-500",
+    text: "text-emerald-700",
+    label: "Trống",
   },
   Dang_su_dung: {
-    card: 'bg-teal-50 border-teal-300 hover:border-teal-500 hover:shadow-md',
-    dot: 'bg-teal-500',
-    text: 'text-teal-700',
-    label: 'Đang phục vụ',
+    card: "bg-teal-50 border-teal-300 hover:border-teal-500 hover:shadow-md",
+    dot: "bg-teal-500",
+    text: "text-teal-700",
+    label: "Đang phục vụ",
   },
-  // Trạng thái hiển thị suy ra (không phải BAN.trang_thai thật) — bàn đã gửi yêu
-  // cầu thanh toán, đang chờ thu ngân xử lý: khoá không cho gọi thêm món để
-  // tránh nhầm lẫn/tạo hóa đơn mới trong lúc thu ngân đang xử lý hóa đơn cũ.
   Cho_thanh_toan: {
-    card: 'bg-amber-50 border-amber-300 cursor-not-allowed',
-    dot: 'bg-amber-500',
-    text: 'text-amber-700',
-    label: 'Chờ thanh toán',
+    card: "bg-amber-50 border-amber-300 cursor-not-allowed",
+    dot: "bg-amber-500",
+    text: "text-amber-700",
+    label: "Chờ thanh toán",
   },
 };
 
@@ -47,7 +44,7 @@ function TableMapPage() {
     try {
       setTables(await getTablesMap());
     } catch (err) {
-      setFeedback({ type: 'error', text: getErrorMessage(err) });
+      setFeedback({ type: "error", text: getErrorMessage(err) });
     }
   };
 
@@ -65,20 +62,23 @@ function TableMapPage() {
   const handleClickTable = (b) => {
     // Bàn đã gửi yêu cầu thanh toán -> khoá, không cho gọi thêm món cho tới khi
     // thu ngân xử lý xong (tránh tạo hóa đơn mới/nhầm lẫn trong lúc chờ)
-    if (b.trang_thai === 'Dang_su_dung' && b.trang_thai_hoa_don === 'Cho_thanh_toan') {
+    if (
+      b.trang_thai === "Dang_su_dung" &&
+      b.trang_thai_hoa_don === "Cho_thanh_toan"
+    ) {
       setFeedback({
-        type: 'error',
+        type: "error",
         text: `${b.ten_ban} đang chờ thu ngân xử lý thanh toán, chưa thể gọi thêm món.`,
       });
       return;
     }
     // Bàn đang phục vụ -> vào trang gọi món
-    if (b.trang_thai === 'Dang_su_dung') {
+    if (b.trang_thai === "Dang_su_dung") {
       navigate(`/server/order/${b.ma_ban}`);
       return;
     }
     // Bàn trống -> yêu cầu xác nhận mở bàn
-    if (b.trang_thai === 'Trong') {
+    if (b.trang_thai === "Trong") {
       setOpenTarget(b);
     }
   };
@@ -86,7 +86,7 @@ function TableMapPage() {
   const confirmOpenTable = async () => {
     const target = openTarget;
     await openTable(target.ma_ban);
-    setFeedback({ type: 'success', text: `Đã mở ${target.ten_ban}` });
+    setFeedback({ type: "success", text: `Đã mở ${target.ten_ban}` });
     setOpenTarget(null);
     await loadTables();
     // Sau khi mở thành công -> chuyển thẳng sang trang gọi món
@@ -99,11 +99,16 @@ function TableMapPage() {
     return acc;
   }, {});
 
-  const soTrong = tables.filter((b) => b.trang_thai === 'Trong').length;
-  const soChoThanhToan = tables.filter((b) => b.trang_thai_hoa_don === 'Cho_thanh_toan').length;
-  const soDangPhucVu = tables.filter((b) => b.trang_thai === 'Dang_su_dung').length - soChoThanhToan;
+  const soTrong = tables.filter((b) => b.trang_thai === "Trong").length;
+  const soChoThanhToan = tables.filter(
+    (b) => b.trang_thai_hoa_don === "Cho_thanh_toan",
+  ).length;
+  const soDangPhucVu =
+    tables.filter((b) => b.trang_thai === "Dang_su_dung").length -
+    soChoThanhToan;
 
-  if (loading) return <p className="text-sm text-stone-500">Đang tải sơ đồ bàn...</p>;
+  if (loading)
+    return <p className="text-sm text-stone-500">Đang tải sơ đồ bàn...</p>;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -128,7 +133,9 @@ function TableMapPage() {
           <div className="flex items-center gap-2 rounded-lg bg-white border border-stone-200 px-3 py-2">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
             <span className="text-stone-500">Chờ thanh toán</span>
-            <span className="font-semibold text-stone-800">{soChoThanhToan}</span>
+            <span className="font-semibold text-stone-800">
+              {soChoThanhToan}
+            </span>
           </div>
         </div>
       </div>
@@ -136,10 +143,10 @@ function TableMapPage() {
       {feedback && (
         <div
           className={
-            'mb-4 px-4 py-2 rounded-lg border text-sm ' +
-            (feedback.type === 'error'
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-700')
+            "mb-4 px-4 py-2 rounded-lg border text-sm " +
+            (feedback.type === "error"
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700")
           }
         >
           {feedback.text}
@@ -147,7 +154,9 @@ function TableMapPage() {
       )}
 
       {tables.length === 0 && (
-        <p className="text-sm text-stone-400">Chưa có bàn nào được thiết lập.</p>
+        <p className="text-sm text-stone-400">
+          Chưa có bàn nào được thiết lập.
+        </p>
       )}
 
       {Object.entries(grouped).map(([khuVuc, list]) => (
@@ -157,7 +166,12 @@ function TableMapPage() {
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {list.map((b) => (
-              <TableCard key={b.ma_ban} ban={b} onClick={handleClickTable} onShowQr={setQrTarget} />
+              <TableCard
+                key={b.ma_ban}
+                ban={b}
+                onClick={handleClickTable}
+                onShowQr={setQrTarget}
+              />
             ))}
           </div>
         </div>
@@ -166,7 +180,9 @@ function TableMapPage() {
       <ConfirmDialog
         open={!!openTarget}
         title="Mở bàn"
-        description={openTarget ? `Xác nhận mở "${openTarget.ten_ban}" để đón khách?` : ''}
+        description={
+          openTarget ? `Xác nhận mở "${openTarget.ten_ban}" để đón khách?` : ""
+        }
         confirmText="Mở bàn"
         onConfirm={confirmOpenTable}
         onClose={() => setOpenTarget(null)}
@@ -175,7 +191,9 @@ function TableMapPage() {
       <Modal
         open={!!qrTarget}
         onClose={() => setQrTarget(null)}
-        title={qrTarget ? `Mã QR gọi món - ${qrTarget.ten_ban}` : 'Mã QR gọi món'}
+        title={
+          qrTarget ? `Mã QR gọi món - ${qrTarget.ten_ban}` : "Mã QR gọi món"
+        }
       >
         {qrTarget && <TableQrContent ban={qrTarget} />}
       </Modal>
@@ -186,22 +204,29 @@ function TableMapPage() {
 // Tách 1 ô bàn ra thành component nhỏ
 function TableCard({ ban, onClick, onShowQr }) {
   const trangThaiHienThi =
-    ban.trang_thai === 'Dang_su_dung' && ban.trang_thai_hoa_don === 'Cho_thanh_toan'
-      ? 'Cho_thanh_toan'
+    ban.trang_thai === "Dang_su_dung" &&
+    ban.trang_thai_hoa_don === "Cho_thanh_toan"
+      ? "Cho_thanh_toan"
       : ban.trang_thai;
   const style = STATUS_STYLE[trangThaiHienThi] || STATUS_STYLE.Trong;
   return (
-    <div className={`relative rounded-xl border-2 transition-all ${style.card}`}>
+    <div
+      className={`relative rounded-xl border-2 transition-all ${style.card}`}
+    >
       <button
         onClick={() => onClick(ban)}
         className="w-full p-4 text-left active:scale-95 transition-all"
       >
         <div className="flex items-center gap-1.5 pr-6">
           <span className={`w-2 h-2 rounded-full shrink-0 ${style.dot}`}></span>
-          <span className="font-bold text-stone-800 truncate">{ban.ten_ban}</span>
+          <span className="font-bold text-stone-800 truncate">
+            {ban.ten_ban}
+          </span>
         </div>
         <div className="text-xs text-stone-500 mt-1">{ban.so_ghe} ghế</div>
-        <div className={`text-xs font-medium mt-2 ${style.text}`}>{style.label}</div>
+        <div className={`text-xs font-medium mt-2 ${style.text}`}>
+          {style.label}
+        </div>
       </button>
 
       {ban.qr_code_dinh_danh && (
@@ -220,8 +245,7 @@ function TableCard({ ban, onClick, onShowQr }) {
   );
 }
 
-// Nội dung modal xem/in mã QR — mỗi bàn có 1 mã QR cố định (dán tại bàn),
-// khách quét vào để vào thực đơn gọi món qua điện thoại
+// Nội dung modal xem/in mã QR — mỗi bàn có 1 mã QR cố định (dán bàn)
 function TableQrContent({ ban }) {
   const qrUrl = `${window.location.origin}/qr/${ban.qr_code_dinh_danh}`;
   return (
@@ -233,7 +257,9 @@ function TableQrContent({ ban }) {
         <div className="text-center">
           <div className="text-lg font-bold text-stone-800">{ban.ten_ban}</div>
           <div className="text-xs text-stone-500">{ban.ten_khu_vuc}</div>
-          <div className="text-xs text-stone-400 mt-1">Quét mã để xem thực đơn và gọi món</div>
+          <div className="text-xs text-stone-400 mt-1">
+            Quét mã để xem thực đơn và gọi món
+          </div>
         </div>
       </div>
       <button

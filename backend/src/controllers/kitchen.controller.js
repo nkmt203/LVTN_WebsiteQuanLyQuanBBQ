@@ -3,13 +3,6 @@ const bus = require("../events/socketBus");
 
 // ============================================================
 // GET /api/kitchen/orders — danh sách món cho bếp xử lý
-// Bao gồm:
-//   - Món Dang_che_bien (đang cần làm) / Da_hoan_thanh (đã làm xong, hiện trong vé)
-//   - Món Da_huy mà bếp CHƯA tiếp nhận (chưa bấm "Đã dừng chế biến")
-// KHÔNG bao gồm món Cho_xac_nhan: theo nghiệp vụ, nhân viên phục vụ phải xác
-// nhận (qua confirmOrderItem, sau thời gian) trước khi món được xem là
-// lệnh chế biến chính thức và chuyển tới bếp — bếp không được thấy món khi
-// còn đang chờ xác nhận.
 // ============================================================
 const getPendingOrders = async (req, res) => {
   try {
@@ -59,7 +52,6 @@ const completeOrderItem = async (req, res) => {
 
     await conn.beginTransaction();
 
-    // 1. Lấy thông tin dòng món
     const [rows] = await conn.query(
       `SELECT ct.ma_hoa_don, ct.ma_mon_an, ct.so_luong, ct.trang_thai,
               m.ten_mon_an, hd.ma_ban, b.ten_ban
@@ -83,13 +75,11 @@ const completeOrderItem = async (req, res) => {
       });
     }
 
-    // 2. Đổi trạng thái món sang Da_hoan_thanh
     await conn.query(
       `UPDATE CHI_TIET_HOA_DON SET trang_thai = 'Da_hoan_thanh' WHERE ma_chi_tiet_hd = ?`,
       [id],
     );
 
-    // 3. TỰ ĐỘNG TRỪ KHO — lấy định mức nguyên liệu của món
     // LEFT JOIN + COALESCE: nguyên liệu chưa từng nhập kho (chưa có dòng
     // KHO_NGUYEN_LIEU) vẫn phải được xét tới, coi tồn hiện tại = 0, để không
     // bị bỏ sót khỏi việc ghi nhật ký hao hụt / cảnh báo thiếu hụt.
@@ -106,8 +96,8 @@ const completeOrderItem = async (req, res) => {
       [cur.ma_mon_an],
     );
 
-    const canhBaoThieu = []; // nguyên liệu bị thiếu khi trừ kho
-    const canhBaoTonThap = []; // nguyên liệu vừa xuống dưới mức tối thiểu
+    const canhBaoThieu = [];
+    const canhBaoTonThap = [];
 
     for (const nl of dinhMuc) {
       const luongCanTru = Number(nl.so_luong_su_dung) * cur.so_luong;
@@ -117,10 +107,9 @@ const completeOrderItem = async (req, res) => {
       let luongThucTru = luongCanTru;
       let luongThieu = 0;
 
-      // 3a. Kiểm tra kho có đủ không
       if (tonHienTai < luongCanTru) {
-        // KHÔNG ĐỦ — vẫn cho hoàn thành (không gián đoạn phục vụ)
-        // Trừ hết phần đang có, ghi nhật ký phần thiếu
+        // Kho không đủ — vẫn cho hoàn thành (không gián đoạn phục vụ),
+        // trừ hết phần đang có và ghi nhật ký phần còn thiếu
         luongThucTru = tonHienTai;
         luongThieu = luongCanTru - tonHienTai;
 
@@ -140,10 +129,8 @@ const completeOrderItem = async (req, res) => {
         canhBaoThieu.push(`${nl.ten_nguyen_lieu} (thiếu ${luongThieu})`);
       }
 
-      // 3b. Trừ kho phần có sẵn
       const tonMoi = tonHienTai - luongThucTru;
 
-      // 3c. Cập nhật trạng thái tồn kho
       let trangThaiMoi;
       if (tonMoi <= 0) {
         trangThaiMoi = "Het_hang";
@@ -170,7 +157,6 @@ const completeOrderItem = async (req, res) => {
         );
       }
 
-      // 3d. Cảnh báo tồn xuống thấp (nếu vừa vượt ngưỡng)
       if (tonHienTai >= mucToiThieu && tonMoi < mucToiThieu) {
         canhBaoTonThap.push(`${nl.ten_nguyen_lieu} (còn ${tonMoi})`);
       }
@@ -178,7 +164,6 @@ const completeOrderItem = async (req, res) => {
 
     await conn.commit();
 
-    // 4. Emit sự kiện cho phục vụ (Socket sau này sẽ push realtime)
     bus.emit("server:item-done", {
       ma_chi_tiet_hd: id,
       ma_ban: cur.ma_ban,
@@ -186,7 +171,6 @@ const completeOrderItem = async (req, res) => {
       ten_mon_an: cur.ten_mon_an,
     });
 
-    // Emit cảnh báo cho admin nếu có kho thiếu / sắp hết
     if (canhBaoThieu.length > 0) {
       bus.emit("admin:stock-shortage", {
         ten_mon_an: cur.ten_mon_an,
@@ -199,7 +183,6 @@ const completeOrderItem = async (req, res) => {
       });
     }
 
-    // 5. Trả về kết quả kèm cảnh báo cho FE hiển thị
     res.json({
       message: `Đã hoàn thành "${cur.ten_mon_an}"`,
       canh_bao_thieu: canhBaoThieu,
@@ -217,7 +200,6 @@ const completeOrderItem = async (req, res) => {
 // ============================================================
 // PATCH /api/kitchen/orders/:id/acknowledge-cancel
 // Bếp xác nhận đã tiếp nhận yêu cầu hủy (đã dừng chế biến)
-// Do DB đã chốt không thêm cột, dùng tag [BEP_OK] append vào ghi_chu
 // ============================================================
 const acknowledgeCancellation = async (req, res) => {
   try {
@@ -234,7 +216,6 @@ const acknowledgeCancellation = async (req, res) => {
       return res.status(409).json({ message: "Món này chưa được hủy" });
     }
 
-    // Tránh append trùng nếu bấm 2 lần
     if (rows[0].ghi_chu?.includes("[BEP_OK]")) {
       return res.json({ message: "Đã tiếp nhận trước đó" });
     }

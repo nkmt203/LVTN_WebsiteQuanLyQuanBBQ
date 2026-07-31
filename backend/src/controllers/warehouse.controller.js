@@ -1,6 +1,5 @@
 const pool = require("../config/db");
 
-// Cùng ngưỡng phân loại tồn kho với luồng tự động trừ kho ở kitchen.controller.js
 const tinhTrangThaiTon = (soLuongTon, mucToiThieu) => {
   if (soLuongTon <= 0) return "Het_hang";
   if (soLuongTon < mucToiThieu) return "Sap_het";
@@ -8,7 +7,7 @@ const tinhTrangThaiTon = (soLuongTon, mucToiThieu) => {
 };
 
 // ============================================================
-// GET /api/warehouse/inventory — tra cứu tồn kho
+// GET /api/warehouse/inventory — tra cứu tồn kho,Lấy danh sách nguyên liệu và số lượng tồn kho.
 // ============================================================
 const getInventory = async (req, res) => {
   try {
@@ -31,8 +30,8 @@ const getInventory = async (req, res) => {
       );
       params.push(trangThaiTon);
     }
-    // Nguyên liệu đã ngừng sử dụng vẫn cần thấy trong kho để đối soát, không lọc theo trạng thái NL
 
+    // Nguyên liệu đã ngừng sử dụng vẫn cần thấy trong kho
     const dieuKien = conditions.length
       ? `WHERE ` + conditions.join(` AND `)
       : "";
@@ -180,7 +179,7 @@ const getImportReceipts = async (req, res) => {
   }
 };
 
-// GET /api/warehouse/imports/:id
+// GET /api/warehouse/imports/:id Lấy chi tiết
 const getImportReceiptDetail = async (req, res) => {
   try {
     const { id } = req.params;

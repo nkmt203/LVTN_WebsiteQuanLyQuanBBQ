@@ -22,7 +22,7 @@ def get_connection():
 
 
 def lay_danh_sach_nguyen_lieu():
-    """Toàn bộ nguyên liệu đang hoạt động, kèm tồn kho hiện tại và đơn vị tính."""
+    """all nguyên liệu đang hoạt động, kèm tồn kho hiện tại và đơn vị tính."""
     conn = get_connection()
     try:
         cur = conn.cursor(dictionary=True)
@@ -46,8 +46,7 @@ def lay_danh_sach_nguyen_lieu():
 def lay_lich_su_tieu_thu():
     """
     Lịch sử tiêu thụ nguyên liệu theo từng ngày — quy đổi từ món đã hoàn thành
-    (chi_tiet_hoa_don) qua định mức nguyên liệu/món (dinh_muc_nguyen_lieu).
-    Trả về danh sách dict: {ma_nguyen_lieu, ngay, so_luong_tieu_thu}.
+    qua định mức nguyên liệu/món.
     """
     conn = get_connection()
     try:

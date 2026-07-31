@@ -182,8 +182,6 @@ const updateIngredientStatus = async (req, res) => {
         .json({ message: "Nguyên liệu không còn tồn tại trên hệ thống" });
     }
 
-    //Kiểm ra nl có trong định mức món ăn không
-
     if (trang_thai === "Ngung_su_dung") {
       const [dmRows] = await pool.query(
         `
@@ -228,7 +226,6 @@ const deleteIngredient = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy nguyên liệu" });
     }
 
-    //KIểm tra kho-nhập-định mức
     const [refs] = await pool.query(
       `
       SELECT
