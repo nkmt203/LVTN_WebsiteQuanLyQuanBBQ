@@ -1526,42 +1526,77 @@ Bộ phận thu ngân tiếp nhận yêu cầu thanh toán từ nhân viên ph�
 
 **Mô tả nghiệp vụ:**
 
-Chức năng tư vấn bằng Trí tuệ nhân tạo (AI) hỗ trợ khách hàng nhanh chóng lựa chọn được các món ăn phù hợp với nhu cầu riêng dựa trên các thông tin cung cấp như sở thích cá nhân, khẩu vị (cay, không cay, ít ngọt...) hoặc số lượng người cùng tham gia dùng bữa tại nhà hàng BBQ. Để đảm bảo an toàn thông tin và bảo mật hệ thống, các yêu cầu tư vấn từ khách hàng sẽ được xử lý tập trung thông qua máy chủ trung gian của hệ thống trước khi gửi đến AI, tuyệt đối không gửi dữ liệu trực tiếp từ thiết bị của người dùng.
+Chức năng tư vấn bằng AI giúp khách hàng nhanh chóng chọn được món ăn phù hợp dựa trên yêu cầu tự do (sở thích, khẩu vị, số người ăn, ngân sách...). Để AI không đưa ra thông tin sai lệch (gợi ý món không có thật), hệ thống áp dụng cơ chế đối chiếu 2 chiều: cung cấp đúng danh sách món đang thực sự kinh doanh trước khi hỏi AI, và lọc lại kết quả AI trả về theo đúng danh sách đó trước khi hiển thị cho khách.
 
-**Bước 1:** Khách hàng truy cập vào giao diện "Trợ lý ảo tư vấn món ăn" trên thiết bị di động cá nhân và tiến hành nhập nội dung yêu cầu (Giới hạn tối đa 500 ký tự để tối ưu hóa tốc độ xử lý).
+**Bước 1:** Khách hàng quét mã QR tại bàn để vào giao diện gọi món, bấm biểu tượng "Trợ lý AI tư vấn món ăn" và nhập nội dung yêu cầu.
 
-**Bước 2:** Hệ thống thực hiện kiểm tra, lọc bỏ các ký tự lạ và làm sạch dữ liệu văn bản đầu vào:
+**Bước 2:** Xác thực phiên và kiểm tra dữ liệu đầu vào.
 
-- Nếu nội dung bị bỏ trống hoặc chứa các từ ngữ không hợp lệ: Hệ thống hiển thị thông báo nhắc nhở và yêu cầu khách hàng nhập lại nội dung tại Bước 1.
+- Hệ thống xác thực mã QR và phiên làm việc hiện tại của bàn: nếu mã QR không hợp lệ, bàn chưa sẵn sàng, hoặc phiên đã hết hạn → hiển thị thông báo tương ứng, kết thúc quy trình.
+- Làm sạch nội dung yêu cầu.
+- Nếu nội dung bị bỏ trống hoặc vượt quá 500 ký tự → hiển thị thông báo, yêu cầu nhập lại tại Bước 1.
 
-- Nếu nội dung hoàn toàn hợp lệ: Hệ thống phê duyệt và chuyển sang Bước 3.
+**Bước 3:** Chuẩn bị dữ liệu và bộ khung câu hỏi.
 
-**Bước 3:** Hệ thống tự động biên dịch, kết hợp nội dung yêu cầu của khách hàng cùng với danh sách dữ liệu các món ăn hiện đang kinh doanh tại nhà hàng thành một bộ khung câu hỏi tiêu chuẩn, sau đó gửi đến bộ não xử lý AI trực tuyến. Thời gian chờ phản hồi tối đa của hệ thống được thiết lập là 10 giây để tránh việc khách hàng phải đợi quá lâu.
+- Hệ thống truy vấn danh sách món ăn đang ở trạng thái "Đang kinh doanh" và thuộc danh mục đang hoạt động, kèm tên, giá bán, danh mục, mô tả.
+- Nếu không còn món nào để tư vấn (trường hợp thực đơn rỗng) → hiển thị thông báo lỗi, kết thúc quy trình.
+- Ràng buộc: bộ khung câu hỏi gửi AI quy định rõ chỉ được chọn tối đa 5 món, CHỈ từ đúng danh sách đã cung cấp bằng đúng mã món, tuyệt đối không được tự ý đề xuất món không có trong danh sách.
 
-**Bước 4:** Hệ thống tiếp nhận phản hồi từ bộ não xử lý AI và thực hiện kiểm tra kết quả trả về để rẽ nhánh xử lý:
+**Bước 4:** Gửi yêu cầu đến dịch vụ AI.
 
-- Nếu AI phản hồi dữ liệu thành công và trả về danh sách gợi ý hợp lệ: Hệ thống phê duyệt dữ liệu và chuyển sang Bước 5.
+- Input: Nội dung yêu cầu của khách (đã làm sạch) + bộ khung câu hỏi (danh sách món thật có trong quán).
+- Output: Phản hồi có cấu trúc gồm câu trả lời dạng văn bản + danh sách mã món được gợi ý.
+- Thời gian chờ phản hồi tối đa 10 giây.
 
-- Nếu quá thời gian chờ (quá 10 giây), gặp sự cố ngắt kết nối mạng hoặc AI trả về thông báo lỗi: Hệ thống tự động chuyển hướng, hiển thị thông báo lỗi "Chức năng tư vấn tạm thời không khả dụng, vui lòng thử lại sau" và đề xuất khách hàng trực tiếp xem danh mục thực đơn truyền thống. Quy trình kết thúc tại Bước 6.
+**Bước 5:** Hệ thống tiếp nhận phản hồi và rẽ nhánh xử lý:
 
-**Bước 5:** Hệ thống tiếp nhận nội dung và hiển thị kết quả gợi ý món ăn trực quan lên màn hình thiết bị của khách hàng. Khách hàng có thể lựa chọn nhanh các món ăn yêu thích trực tiếp ngay trên danh sách gợi ý của Trợ lý AI để thêm vào hóa đơn gọi món.
+- Nếu quá thời gian chờ, mất kết nối, AI báo lỗi, hoặc phản hồi không đúng định dạng (lỗi phân tích dữ liệu) → hiển thị "Chức năng tư vấn tạm thời không khả dụng, vui lòng thử lại sau". Quy trình kết thúc tại Bước 7.
+- Nếu phản hồi hợp lệ → chuyển Bước 6.
 
-**Bước 6:** Kết thúc quy trình.
+**Bước 6:** Đối chiếu và hiển thị kết quả. Hệ thống đối chiếu từng mã món AI gợi ý với danh sách món thật ở Bước 3, loại bỏ món không tồn tại/ngừng kinh doanh, giữ tối đa 5 món hợp lệ đầu tiên. Nếu không còn món nào hợp lệ → xử lý như nhánh lỗi ở Bước 5. Ngược lại, hiển thị món gợi ý kèm hình ảnh, giá bán để khách chọn nhanh thêm vào giỏ hàng.
+
+**Bước 7:** Kết thúc quy trình.
 
 #### 2.3.1.15 Quy trình AI dự báo nhu cầu nguyên liệu
 
 **Mô tả nghiệp vụ:**
 
-Chức năng dự báo nhu cầu tiêu thụ sử dụng mô hình thuật toán phân tích dữ liệu chuyên sâu, được triển khai dưới dạng một phân hệ xử lý dữ liệu độc lập. Hệ thống quản lý cốt lõi của nhà hàng sẽ liên kết và gửi tín hiệu đến phân hệ dự báo này để lấy kết quả phân tích xu hướng, sau đó hiển thị trực quan cho Người quản lý tham khảo.
+Chức năng dự báo nhu cầu nguyên liệu sử dụng mô hình trí tuệ nhân tạo (AI) để ước tính lượng nguyên liệu cần dùng trong thời gian tới, dựa trên lịch sử bán hàng thật của quán.
 
-**Bước 1:** Người quản lý truy cập vào chức năng "Dự báo nhu cầu nguyên liệu" trên giao diện quản trị và tiến hành lựa chọn khoảng thời gian cần dự báo trong tương lai (Ví dụ: Dự báo cho 7 ngày tới, cho tuần tới hoặc tháng tới).
+**Bước 1:** Người quản lý truy cập chức năng "Dự báo nguyên liệu" trên giao diện quản trị và bấm "Phân tích dự báo".
 
-**Bước 2:** Hệ thống quản lý tự động trích xuất toàn bộ dữ liệu lịch sử bán hàng, lịch sử tiêu thụ các món ăn trong quá khứ và gửi yêu cầu phân tích sang phân hệ dự báo độc lập.
+**Bước 2:** Thu thập và tiền xử lý dữ liệu. Hệ thống tự động gom dữ liệu tiêu thụ nguyên liệu theo từng ngày, suy ra từ hóa đơn đã bán nhân với định mức nguyên liệu/món:
 
-**Bước 3:** Phân hệ dự báo áp dụng mô hình toán học thuật toán để tiến hành phân tích chuỗi dữ liệu theo dòng thời gian (Xem xét các yếu tố chu kỳ như ngày cuối tuần, ngày lễ, mùa vụ), từ đó tính toán chính xác nhu cầu tiêu thụ dự kiến của từng loại nguyên liệu cấu thành trong khoảng thời gian Người quản lý yêu cầu.
+- Chỉ tính các dòng hóa đơn đã ở trạng thái "Đã hoàn thành" (không tính đơn đang chờ/đã huỷ).
+- Ngày không phát sinh bán hàng được điền giá trị tiêu thụ = 0 (không được bỏ trống), đảm bảo chuỗi dữ liệu liên tục theo lịch, tránh sai lệch khi tính trung bình hoặc huấn luyện mô hình.
+- Nếu phân hệ dự báo không phản hồi trong vòng 45 giây hoặc gặp sự cố kết nối: hệ thống hiển thị thông báo "Phân hệ dự báo hiện không khả dụng, vui lòng thử lại sau", quy trình kết thúc tại đây.
 
-**Bước 4:** Phân hệ dự báo hoàn tất tính toán và trả về kết quả cấu trúc dữ liệu dự báo cho hệ thống quản lý cốt lõi.
+**Bước 3:** Kiểm tra điều kiện dữ liệu đầu vào. Với mỗi nguyên liệu, hệ thống kiểm tra số ngày dữ liệu lịch sử hiện có để chọn phương án tính toán phù hợp.
 
-**Bước 5:** Hệ thống dữ liệu tiếp nhận kết quả và thực hiện biên dịch để hiển thị trực quan cho Người quản lý dưới dạng các bảng số liệu chi tiết và biểu đồ xu hướng tăng giảm. Người quản lý dựa trên các thông số dự báo này để chủ động đưa ra quyết định đặt hàng và điều chỉnh số lượng nguyên liệu nhập kho một cách tối ưu, tránh tình trạng thừa hoặc thiếu hụt hàng hóa.
+- Nếu đủ từ 14 ngày dữ liệu trở lên → chuyển Bước 4a.
+- Nếu chưa đủ → chuyển Bước 4b.
 
-**Bước 6:** Kết thúc quy trình.
+**Bước 4a:** Chạy mô hình dự báo AI
+
+- Input: Chuỗi thời gian tiêu thụ lịch sử (đã điền đủ ngày) + khung thời gian cần dự báo (7 ngày tới).
+- Output: Số lượng nguyên liệu dự báo tiêu thụ theo từng ngày, kèm khoảng biến động tối đa – tối thiểu có thể xảy ra.
+- Ràng buộc: Giá trị dự báo tiêu thụ không được phép < 0 (âm sẽ được làm tròn về 0). Mô hình có xét yếu tố chu kỳ theo tuần (ví dụ cuối tuần thường đông khách hơn ngày thường), tự học từ chính dữ liệu tiêu thụ thật.
+
+**Bước 4b:** Dự báo bằng trung bình cộng (Fallback). Áp dụng khi chưa đủ 14 ngày dữ liệu, để luôn có kết quả tham khảo an toàn thay vì để mô hình AI chạy khi thiếu cơ sở.
+
+- Công thức: Dự kiến cần = Trung bình tiêu thụ/ngày × Số ngày cần dự báo
+
+**Bước 5:** Tính toán đề xuất nhập hàng
+
+- Công thức: Chênh lệch = Tồn kho hiện tại – (trừ) Tổng dự báo tiêu thụ 7 ngày tới
+- Nếu Chênh lệch < 0 → hệ thống tự động đánh dấu "Cần nhập thêm" cho nguyên liệu đó trong bảng Gợi ý nhập hàng, kèm số lượng chênh lệch cụ thể.
+- Riêng nguyên liệu chưa từng có lịch sử bán hàng (0 dữ liệu): hệ thống so sánh tồn kho hiện tại với mức tồn tối thiểu đã khai báo, thay vì so với số dự báo (vì chưa có cơ sở dữ liệu để dự báo).
+
+**Bước 6:** Đối chiếu và chứng minh độ tin cậy. Hệ thống đối chiếu dự báo tuần này với mức tiêu thụ thực tế của đúng tuần liền trước, theo từng Thứ trong tuần, trình bày qua biểu đồ so sánh.
+
+**Bước 7:** Hiển thị kết quả. Hệ thống hiển thị kết quả cho Người quản lý dưới 2 hình thức:
+
+- Bảng "Gợi ý nhập hàng" (danh sách nguyên liệu cần nhập, kèm số lượng chênh lệch)
+- Mục "Chi tiết dự báo theo ngày" (xem theo từng nguyên liệu cụ thể, gồm bảng dự báo 7 ngày kèm khoảng tin cậy và biểu đồ đối chiếu thực tế/dự báo theo Thứ).
+
+**Bước 8:** Kết thúc quy trình.
