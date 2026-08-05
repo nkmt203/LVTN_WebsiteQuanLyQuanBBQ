@@ -3,19 +3,19 @@ import ToggleSwitch from "../common/ToggleSwitch";
 
 function FoodTable({ foods, onEdit, onDelete, onToggleStatus }) {
   const th =
-    "text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3";
-  const td = "px-4 py-3 text-sm text-stone-700 border-t border-stone-100";
+    "text-left text-xs font-semibold text-stone-500 uppercase px-3 py-2.5 whitespace-nowrap";
+  const td = "px-3 py-2 text-sm text-stone-700 border-t border-stone-100";
 
   return (
     <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-      <table className="w-full">
+      <table className="w-full table-fixed">
         <thead className="bg-stone-50">
           <tr>
-            <th className={th}>Món ăn</th>
-            <th className={th}>Danh mục</th>
-            <th className={th}>Giá</th>
-            <th className={th}>Đang kinh doanh</th>
-            <th className={th + " text-right"}>Thao tác</th>
+            <th className={th + " w-[28%]"}>Món ăn</th>
+            <th className={th + " w-[18%]"}>Danh mục</th>
+            <th className={th + " w-[14%]"}>Giá</th>
+            <th className={th + " w-[26%]"}>Đang kinh doanh</th>
+            <th className={th + " w-[14%] text-right"}>Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -57,8 +57,8 @@ function FoodTable({ foods, onEdit, onDelete, onToggleStatus }) {
                     </div>
                   </div>
                 </td>
-                <td className={td}>{mon.ten_danh_muc}</td>
-                <td className={td + " font-medium text-stone-800"}>
+                <td className={td + " truncate"}>{mon.ten_danh_muc}</td>
+                <td className={td + " font-medium text-stone-800 whitespace-nowrap"}>
                   {Number(mon.gia_ban).toLocaleString("vi-VN")}đ
                 </td>
                 <td className={td}>
