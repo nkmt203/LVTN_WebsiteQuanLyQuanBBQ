@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { io as ioClient } from "socket.io-client";
+import { Sparkles, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import {
   getQrSession,
   getQrBill,
@@ -12,6 +13,7 @@ import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import Modal from "../../components/common/Modal";
+import Toast from "../../components/common/Toast";
 
 const POLL_INTERVAL_MS = 5000;
 const AI_MAX_LENGTH = 500;
@@ -35,6 +37,7 @@ function QrOrderPage() {
   const [billItems, setBillItems] = useState([]);
   const [selectedCat, setSelectedCat] = useState("");
   const [cart, setCart] = useState([]);
+  const [cartExpanded, setCartExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text }
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
@@ -179,6 +182,7 @@ function QrOrderPage() {
       const r = await submitQrOrder(qrCode, session.phien_token, items);
       setFeedback({ type: "success", text: r.message });
       setCart([]);
+      setCartExpanded(false);
       await loadBill(session.phien_token);
     } catch (err) {
       setFeedback({ type: "error", text: getErrorMessage(err) });
@@ -214,8 +218,6 @@ function QrOrderPage() {
 
   const closeAiPanel = () => {
     setAiOpen(false);
-    setAiInput("");
-    setAiResult(null);
   };
 
   // ===== RENDER =====
@@ -258,18 +260,15 @@ function QrOrderPage() {
   return (
     <div className="h-screen flex flex-col bg-stone-50 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 bg-white border-b border-stone-200 px-4 py-3">
+      <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-stone-800">
+          <h1 className="text-base font-bold text-stone-800">
             {session.ten_ban}
           </h1>
-          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+          <span className="text-[11px] font-medium text-amber-700 bg-white border border-amber-300 rounded-full px-2 py-0.5">
             MeatOSync
           </span>
         </div>
-        <p className="text-xs text-stone-500">
-          Xem thực đơn và gọi món ngay tại bàn
-        </p>
       </div>
 
       {/* Lối vào Trợ lý AI tư vấn món ăn — nghiệp vụ 2.3.1.14 (nút nổi, không chiếm hàng riêng) */}
@@ -283,29 +282,16 @@ function QrOrderPage() {
         <span>Hỏi AI</span>
       </button>
 
-      {feedback && (
-        <div
-          className={
-            "shrink-0 mx-4 mt-3 px-3 py-2 rounded-lg border text-sm " +
-            (feedback.type === "error"
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {feedback.text}
-        </div>
-      )}
-
       {/* Giỏ hàng hiện tại (đã gửi) */}
       {activeBill.length > 0 && (
-        <div className="shrink-0 mx-4 mt-3 bg-white rounded-xl border border-stone-200 p-3 max-h-40 overflow-y-auto">
-          <div className="sticky top-0 bg-white flex items-center justify-between mb-2 pb-1">
+        <div className="shrink-0 mx-4 mt-0.5 bg-white rounded-xl border border-stone-200 max-h-40 overflow-y-auto">
+          <div className="sticky top-0 bg-white flex items-center justify-between px-3 pt-3 pb-1">
             <h2 className="text-sm font-semibold text-stone-800">Món đã gọi</h2>
             <span className="text-sm font-semibold text-amber-700">
               {activeBillTotal.toLocaleString("vi-VN")}đ
             </span>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-3 pb-3">
             {activeBill.map((item) => {
               const st = ITEM_STATUS[item.trang_thai] || {
                 cls: "",
@@ -334,15 +320,15 @@ function QrOrderPage() {
                 </div>
               );
             })}
+            {hasPending && (
+              <button
+                onClick={() => setConfirmCancelOpen(true)}
+                className="w-full mt-1 py-1.5 rounded-lg border border-red-300 text-red-600 text-xs font-medium hover:bg-red-50"
+              >
+                Hủy yêu cầu này
+              </button>
+            )}
           </div>
-          {hasPending && (
-            <button
-              onClick={() => setConfirmCancelOpen(true)}
-              className="w-full mt-3 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50"
-            >
-              Hủy yêu cầu này
-            </button>
-          )}
         </div>
       )}
 
@@ -387,22 +373,37 @@ function QrOrderPage() {
       {cart.length > 0 && (
         <div
           ref={cartBarRef}
-          className="shrink-0 bg-white border-t border-stone-200 p-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+          className="shrink-0 bg-white border-t border-stone-200 p-2.5 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
         >
-          <div className="max-h-40 overflow-y-auto flex flex-col gap-2 mb-2">
-            {cart.map((p) => (
-              <CartRow
-                key={p.ma_mon_an}
-                item={p}
-                onUpdateQty={updateCartQty}
-                onUpdateNote={updateCartNote}
-              />
-            ))}
-          </div>
+          <button
+            onClick={() => setCartExpanded((v) => !v)}
+            className="w-full flex items-center justify-between mb-1.5"
+          >
+            <span className="text-sm font-semibold text-stone-800">
+              🛒 {cart.length} món chưa gửi
+            </span>
+            {cartExpanded ? (
+              <ChevronDown size={18} className="text-stone-500" />
+            ) : (
+              <ChevronUp size={18} className="text-stone-500" />
+            )}
+          </button>
+          {cartExpanded && (
+            <div className="max-h-40 overflow-y-auto flex flex-col gap-2 mb-1.5">
+              {cart.map((p) => (
+                <CartRow
+                  key={p.ma_mon_an}
+                  item={p}
+                  onUpdateQty={updateCartQty}
+                  onUpdateNote={updateCartNote}
+                />
+              ))}
+            </div>
+          )}
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full py-3 rounded-xl bg-amber-600 text-white font-semibold disabled:opacity-50 active:scale-95 transition-all"
+            className="w-full py-2.5 rounded-xl bg-amber-600 text-white text-sm font-semibold disabled:opacity-50 active:scale-95 transition-all"
           >
             {submitting
               ? "Đang gửi..."
@@ -425,6 +426,8 @@ function QrOrderPage() {
         open={aiOpen}
         onClose={closeAiPanel}
         title="🤖 Trợ lý AI tư vấn món ăn"
+        maxWidth="max-w-sm"
+        maxHeight="max-h-[75vh]"
       >
         <AiAdvisorPanel
           value={aiInput}
@@ -443,6 +446,12 @@ function QrOrderPage() {
           onShowMenu={closeAiPanel}
         />
       </Modal>
+
+      <Toast
+        type={feedback?.type}
+        message={feedback?.text || ""}
+        onClose={() => setFeedback(null)}
+      />
     </div>
   );
 }
@@ -457,13 +466,6 @@ const AiAdvisorPanel = ({
   onAdd,
   onShowMenu,
 }) => {
-  const [addedMsg, setAddedMsg] = useState("");
-  const handleAdd = (mon) => {
-    onAdd(mon);
-    setAddedMsg(`Đã thêm "${mon.ten_mon_an}" vào giỏ`);
-    setTimeout(() => setAddedMsg(""), 2000);
-  };
-
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-stone-600">
@@ -489,9 +491,19 @@ const AiAdvisorPanel = ({
       <button
         onClick={onAsk}
         disabled={loading || !value.trim()}
-        className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 active:scale-95 transition-all"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-md shadow-indigo-600/25 hover:bg-indigo-700 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all"
       >
-        {loading ? "Đang tìm món phù hợp..." : "Hỏi trợ lý AI"}
+        {loading ? (
+          <>
+            <Loader2 size={16} className="animate-spin" />
+            Đang tìm món phù hợp...
+          </>
+        ) : (
+          <>
+            <Sparkles size={16} />
+            Hỏi trợ lý AI
+          </>
+        )}
       </button>
 
       {result?.error && (
@@ -513,18 +525,13 @@ const AiAdvisorPanel = ({
           <div className="px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm">
             {result.tra_loi}
           </div>
-          {addedMsg && (
-            <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-              {addedMsg}
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-3">
             {result.goi_y.map((mon) => (
               <FoodCard
                 key={mon.ma_mon_an}
                 mon={mon}
                 qty={getCartQty(mon.ma_mon_an)}
-                onAdd={handleAdd}
+                onAdd={onAdd}
               />
             ))}
           </div>

@@ -6,6 +6,7 @@ import { getTablesMap, openTable } from "../../api/serviceApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import Modal from "../../components/common/Modal";
+import Toast from "../../components/common/Toast";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -140,18 +141,11 @@ function TableMapPage() {
         </div>
       </div>
 
-      {feedback && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (feedback.type === "error"
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {feedback.text}
-        </div>
-      )}
+      <Toast
+        type={feedback?.type}
+        message={feedback?.text || ""}
+        onClose={() => setFeedback(null)}
+      />
 
       {tables.length === 0 && (
         <p className="text-sm text-stone-400">
@@ -236,7 +230,7 @@ function TableCard({ ban, onClick, onShowQr }) {
             onShowQr(ban);
           }}
           title="Xem / in mã QR gọi món"
-          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-white hover:text-teal-600"
+          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-white hover:text-teal-600 transition-colors"
         >
           <QrCode className="h-4 w-4" />
         </button>
@@ -264,7 +258,7 @@ function TableQrContent({ ban }) {
       </div>
       <button
         onClick={() => window.print()}
-        className="w-full mt-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+        className="w-full mt-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors"
       >
         🖨 In mã QR
       </button>

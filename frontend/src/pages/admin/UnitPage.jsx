@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Ruler, CircleCheck, CirclePause, Plus } from "lucide-react";
 import {
   getAllUnits,
   createUnit,
@@ -11,6 +12,8 @@ import UnitFilterBar from "../../components/unit/UnitFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 import { getErrorMessage } from "../../api/errorHandler";
 
 const PER_PAGE = 8;
@@ -19,6 +22,8 @@ function UnitPage() {
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({ total: 0, dangDung: 0, ngungSuDung: 0 });
 
   const [keyword, setKeyword] = useState("");
   const [trangThai, setTrangThai] = useState("");
@@ -57,9 +62,26 @@ function UnitPage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, dangDung, ngungSuDung] = await Promise.all([
+        getAllUnits({ limit: 1 }),
+        getAllUnits({ trang_thai: "Dang_dung", limit: 1 }),
+        getAllUnits({ trang_thai: "Ngung_su_dung", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        dangDung: dangDung.total || 0,
+        ngungSuDung: ngungSuDung.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
-      await loadData({ p: 1 });
+      await Promise.all([loadData({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -104,7 +126,7 @@ function UnitPage() {
       const r = await createUnit({ ten_don_vi_tinh: tenDVT, trang_thai: formTrangThai });
       setMessage("✅ " + r.message);
       closeForm();
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -119,7 +141,7 @@ function UnitPage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   function requestSave() {
@@ -138,62 +160,81 @@ function UnitPage() {
     const r = await deleteUnit(deleteTarget.ma_don_vi_tinh);
     setMessage("✅ " + r.message);
     setDeleteTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">
-            Quản lý Đơn vị tính
-          </h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Thêm, sửa và xóa các đơn vị tính dùng cho nguyên liệu.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thêm đơn vị tính
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Đơn vị tính</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Thêm, sửa và xóa các đơn vị tính dùng cho nguyên liệu.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard
+          label="Tổng số đơn vị tính"
+          value={stats.total}
+          icon={Ruler}
+          color="blue"
+        />
+        <StatCard
+          label="Đang dùng"
+          value={stats.dangDung}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Ngừng sử dụng"
+          value={stats.ngungSuDung}
+          icon={CirclePause}
+          color="amber"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách đơn vị tính</h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm đơn vị tính
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <UnitFilterBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            trangThai={trangThai}
+            setTrangThai={setTrangThai}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <UnitTable units={units} onEdit={handleEdit} onDelete={askDelete} />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <UnitFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <UnitTable units={units} onEdit={handleEdit} onDelete={askDelete} />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       <Modal
         open={formOpen}

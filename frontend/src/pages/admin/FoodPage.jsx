@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
 import {
+  UtensilsCrossed,
+  CircleCheck,
+  CirclePause,
+  Tag,
+  Plus,
+} from "lucide-react";
+import {
   getAllFood,
   createFood,
   updateFood,
@@ -13,6 +20,8 @@ import FoodFilterBar from "../../components/food/FoodFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 
 import { getErrorMessage } from "../../api/errorHandler";
 const PER_PAGE = 10;
@@ -22,6 +31,13 @@ function FoodPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  // Thẻ thống kê
+  const [stats, setStats] = useState({
+    total: 0,
+    dangKinhDoanh: 0,
+    tamNgung: 0,
+  });
 
   // Bộ lọc
   const [keyword, setKeyword] = useState("");
@@ -76,6 +92,23 @@ function FoodPage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, dangKinhDoanh, tamNgung] = await Promise.all([
+        getAllFood({ limit: 1 }),
+        getAllFood({ trang_thai: "Dang_kinh_doanh", limit: 1 }),
+        getAllFood({ trang_thai: "Tam_ngung", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        dangKinhDoanh: dangKinhDoanh.total || 0,
+        tamNgung: tamNgung.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
       try {
@@ -85,7 +118,7 @@ function FoodPage() {
         });
         setCategories(Array.isArray(resp.data) ? resp.data : []);
       } catch {}
-      await loadFoods({ p: 1 });
+      await Promise.all([loadFoods({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -157,7 +190,7 @@ function FoodPage() {
       const r = await createFood(buildFoodFormData());
       setMessage("✅ " + r.message);
       closeForm();
-      await loadFoods();
+      await Promise.all([loadFoods(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -169,7 +202,7 @@ function FoodPage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadFoods();
+    await Promise.all([loadFoods(), loadStats()]);
   }
 
   function requestSave() {
@@ -193,7 +226,7 @@ function FoodPage() {
     const r = await updateFoodStatus(toggleTarget.ma_mon_an, next);
     setMessage("✅ " + r.message);
     setToggleTarget(null);
-    await loadFoods();
+    await Promise.all([loadFoods(), loadStats()]);
   }
 
   // === XÓA (popup xác nhận, lỗi hiện ngay trong popup) ===
@@ -205,69 +238,98 @@ function FoodPage() {
     const r = await deleteFood(deleteTarget.ma_mon_an);
     setMessage("✅ " + r.message);
     setDeleteTarget(null);
-    await loadFoods();
+    await Promise.all([loadFoods(), loadStats()]);
   }
 
   // === RENDER ===
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">Quản lý Món ăn</h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Thêm, sửa, đổi trạng thái và xóa món trong thực đơn.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thêm món
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Món ăn</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Thêm, sửa, đổi trạng thái và xóa món trong thực đơn.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+        <StatCard
+          label="Tổng số món ăn"
+          value={stats.total}
+          icon={UtensilsCrossed}
+          color="blue"
+        />
+        <StatCard
+          label="Đang kinh doanh"
+          value={stats.dangKinhDoanh}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Tạm ngừng"
+          value={stats.tamNgung}
+          icon={CirclePause}
+          color="amber"
+        />
+        <StatCard
+          label="Danh mục đang dùng"
+          value={categories.length}
+          icon={Tag}
+          color="stone"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">
+            Danh sách món ăn
+          </h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm món
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <FoodFilterBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            danhMuc={danhMuc}
+            setDanhMuc={setDanhMuc}
+            trangThai={trangThai}
+            setTrangThai={setTrangThai}
+            categories={categories}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <FoodTable
+            foods={foods}
+            onEdit={handleEdit}
+            onDelete={askDelete}
+            onToggleStatus={askToggleStatus}
+          />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <FoodFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        danhMuc={danhMuc}
-        setDanhMuc={setDanhMuc}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        categories={categories}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <FoodTable
-        foods={foods}
-        onEdit={handleEdit}
-        onDelete={askDelete}
-        onToggleStatus={askToggleStatus}
-      />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       <Modal
         open={formOpen}

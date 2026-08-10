@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Package, CircleCheck, TriangleAlert, CircleX, Plus } from "lucide-react";
 import {
   getInventory,
   updateMinStock,
@@ -22,6 +23,8 @@ import ExportReceiptDetail from "../../components/warehouse/ExportReceiptDetail"
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 import { getErrorMessage } from "../../api/errorHandler";
 
 const PER_PAGE = 10;
@@ -222,43 +225,30 @@ function WarehousePage() {
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
+  const tonStats = {
+    total: inventoryAll.length,
+    conHang: inventoryAll.filter((i) => i.trang_thai_ton === "Con_hang").length,
+    sapHet: inventoryAll.filter((i) => i.trang_thai_ton === "Sap_het").length,
+    hetHang: inventoryAll.filter((i) => i.trang_thai_ton === "Het_hang").length,
+  };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">Quản lý Kho</h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Tồn kho được cập nhật đồng bộ với luồng bếp tự động trừ khi hoàn thành món.
-          </p>
-        </div>
-        {tab === "imports" && (
-          <button onClick={() => setImpAddOpen(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-            + Lập phiếu nhập
-          </button>
-        )}
-        {tab === "exports" && (
-          <button onClick={() => setExpAddOpen(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-            + Lập phiếu xuất
-          </button>
-        )}
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Kho</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Tồn kho được cập nhật đồng bộ với luồng bếp tự động trừ khi hoàn thành món.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
-        </div>
-      )}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+        <StatCard label="Tổng nguyên liệu" value={tonStats.total} icon={Package} color="blue" />
+        <StatCard label="Còn hàng" value={tonStats.conHang} icon={CircleCheck} color="emerald" />
+        <StatCard label="Sắp hết" value={tonStats.sapHet} icon={TriangleAlert} color="amber" />
+        <StatCard label="Hết hàng" value={tonStats.hetHang} icon={CircleX} color="red" />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
 
       <div className="flex gap-2 mb-4 border-b border-stone-200">
         {TABS.map((t) => (
@@ -266,7 +256,7 @@ function WarehousePage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px " +
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors " +
               (tab === t.key
                 ? "border-blue-600 text-blue-700"
                 : "border-transparent text-stone-500 hover:text-stone-700")
@@ -279,37 +269,86 @@ function WarehousePage() {
 
       {tab === "inventory" && (
         <>
-          <InventoryFilterBar
-            keyword={invKeyword}
-            setKeyword={setInvKeyword}
-            trangThaiTon={invTrangThaiTon}
-            setTrangThaiTon={setInvTrangThaiTon}
-            onSearch={() => loadInventory({ p: 1 })}
-            onReset={() => {
-              setInvKeyword("");
-              setInvTrangThaiTon("");
-              loadInventory({ p: 1, keyword: "", trangThaiTon: "" });
-            }}
-          />
-          <InventoryTable items={inventory} onEditMinStock={openMinStock} />
-          <Pagination page={invPage} totalPages={invTotalPages} total={invTotal}
-                      onPageChange={(p) => loadInventory({ p })} />
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 pt-2.5">
+              <h3 className="text-sm font-bold text-stone-800">Danh sách tồn kho</h3>
+            </div>
+            <div className="border-b border-stone-100">
+              <InventoryFilterBar
+                keyword={invKeyword}
+                setKeyword={setInvKeyword}
+                trangThaiTon={invTrangThaiTon}
+                setTrangThaiTon={setInvTrangThaiTon}
+                onSearch={() => loadInventory({ p: 1 })}
+                onReset={() => {
+                  setInvKeyword("");
+                  setInvTrangThaiTon("");
+                  loadInventory({ p: 1, keyword: "", trangThaiTon: "" });
+                }}
+              />
+            </div>
+            <div key={invPage} className="animate-fade-in">
+              <InventoryTable items={inventory} onEditMinStock={openMinStock} />
+            </div>
+          </div>
+          {invTotalPages > 1 && (
+            <div className="mt-4 px-2">
+              <Pagination page={invPage} totalPages={invTotalPages} total={invTotal}
+                          onPageChange={(p) => loadInventory({ p })} />
+            </div>
+          )}
         </>
       )}
 
       {tab === "imports" && (
         <>
-          <ImportReceiptTable receipts={imports} onViewDetail={handleViewImportDetail} />
-          <Pagination page={impPage} totalPages={impTotalPages} total={impTotal}
-                      onPageChange={(p) => loadImports({ p })} />
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 pt-2.5">
+              <h3 className="text-sm font-bold text-stone-800">Danh sách phiếu nhập</h3>
+              <button
+                onClick={() => setImpAddOpen(true)}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+              >
+                <Plus size={16} />
+                Lập phiếu nhập
+              </button>
+            </div>
+            <div key={impPage} className="animate-fade-in">
+              <ImportReceiptTable receipts={imports} onViewDetail={handleViewImportDetail} />
+            </div>
+          </div>
+          {impTotalPages > 1 && (
+            <div className="mt-4 px-2">
+              <Pagination page={impPage} totalPages={impTotalPages} total={impTotal}
+                          onPageChange={(p) => loadImports({ p })} />
+            </div>
+          )}
         </>
       )}
 
       {tab === "exports" && (
         <>
-          <ExportReceiptTable receipts={exports} onViewDetail={handleViewExportDetail} />
-          <Pagination page={expPage} totalPages={expTotalPages} total={expTotal}
-                      onPageChange={(p) => loadExports({ p })} />
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-3 pt-2.5">
+              <h3 className="text-sm font-bold text-stone-800">Danh sách phiếu xuất</h3>
+              <button
+                onClick={() => setExpAddOpen(true)}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+              >
+                <Plus size={16} />
+                Lập phiếu xuất
+              </button>
+            </div>
+            <div key={expPage} className="animate-fade-in">
+              <ExportReceiptTable receipts={exports} onViewDetail={handleViewExportDetail} />
+            </div>
+          </div>
+          {expTotalPages > 1 && (
+            <div className="mt-4 px-2">
+              <Pagination page={expPage} totalPages={expTotalPages} total={expTotal}
+                          onPageChange={(p) => loadExports({ p })} />
+            </div>
+          )}
         </>
       )}
 

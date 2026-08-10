@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Armchair, CircleCheck, Users, Plus } from 'lucide-react';
 import { getAllTables, createTable, updateTable, deleteTable, getZonesList } from '../../api/tableApi';
 import { getErrorMessage } from '../../api/errorHandler';
 import TableForm from '../../components/table/TableForm';
@@ -7,6 +8,8 @@ import TableFilterBar from '../../components/table/TableFilterBar';
 import Pagination from '../../components/common/Pagination';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import StatCard from '../../components/common/StatCard';
+import Toast from '../../components/common/Toast';
 
 const PER_PAGE = 10;
 
@@ -24,6 +27,8 @@ function TablePage() {
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+
+  const [stats, setStats] = useState({ total: 0, trong: 0, dangSuDung: 0 });
 
   // Filter
   const [keyword, setKeyword] = useState('');
@@ -64,12 +69,29 @@ function TablePage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, trong, dangSuDung] = await Promise.all([
+        getAllTables({ limit: 1 }),
+        getAllTables({ trang_thai: 'Trong', limit: 1 }),
+        getAllTables({ trang_thai: 'Dang_su_dung', limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        trong: trong.total || 0,
+        dangSuDung: dangSuDung.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
       try {
         setZones(await getZonesList());
       } catch {}
-      await loadTables({ p: 1 });
+      await Promise.all([loadTables({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -123,7 +145,7 @@ function TablePage() {
       const r = await createTable(buildTablePayload());
       setMessage('✅ ' + r.message);
       closeForm();
-      await loadTables();
+      await Promise.all([loadTables(), loadStats()]);
     } catch (err) {
       setMessage('❌ ' + getErrorMessage(err));
     }
@@ -135,7 +157,7 @@ function TablePage() {
     setMessage('✅ ' + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadTables();
+    await Promise.all([loadTables(), loadStats()]);
   }
 
   function requestSave() {
@@ -154,45 +176,62 @@ function TablePage() {
     const r = await deleteTable(deleteTarget.ma_ban);
     setMessage('✅ ' + r.message);
     setDeleteTarget(null);
-    await loadTables();
+    await Promise.all([loadTables(), loadStats()]);
   }
 
   // ===== Render =====
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith('❌');
-
   return (
-    <div>
-      <PageHeader onAdd={openAdd} />
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Bàn</h2>
+        <p className="text-xs text-stone-500 mt-0.5">Thêm, sửa, xóa các bàn trong nhà hàng.</p>
+      </div>
 
-      {message && (
-        <div
-          className={
-            'mb-4 px-4 py-2 rounded-lg border text-sm ' +
-            (isError
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-700')
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard label="Tổng số bàn" value={stats.total} icon={Armchair} color="blue" />
+        <StatCard label="Đang trống" value={stats.trong} icon={CircleCheck} color="emerald" />
+        <StatCard label="Đang sử dụng" value={stats.dangSuDung} icon={Users} color="amber" />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage('')} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách bàn</h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm bàn
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <TableFilterBar
+            keyword={keyword} setKeyword={setKeyword}
+            khuVuc={filterKhuVuc} setKhuVuc={setFilterKhuVuc}
+            trangThai={filterTrangThai} setTrangThai={setFilterTrangThai}
+            zones={zones}
+            onSearch={handleSearch} onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <TableTable tables={tables} onEdit={openEdit} onDelete={askDelete} />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page} totalPages={totalPages} total={total}
+            onPageChange={(p) => loadTables({ p })}
+          />
         </div>
       )}
-
-      <TableFilterBar
-        keyword={keyword} setKeyword={setKeyword}
-        khuVuc={filterKhuVuc} setKhuVuc={setFilterKhuVuc}
-        trangThai={filterTrangThai} setTrangThai={setFilterTrangThai}
-        zones={zones}
-        onSearch={handleSearch} onReset={handleReset}
-      />
-
-      <TableTable tables={tables} onEdit={openEdit} onDelete={askDelete} />
-
-      <Pagination
-        page={page} totalPages={totalPages} total={total}
-        onPageChange={(p) => loadTables({ p })}
-      />
 
       <Modal
         open={formOpen}
@@ -231,21 +270,6 @@ function TablePage() {
         onConfirm={doUpdate}
         onClose={() => setConfirmUpdateOpen(false)}
       />
-    </div>
-  );
-}
-
-// Tách phần header thành component nhỏ
-function PageHeader({ onAdd }) {
-  return (
-    <div className="flex items-center justify-between mb-5">
-      <div>
-        <h2 className="text-xl font-bold text-stone-800">Quản lý Bàn</h2>
-        <p className="text-sm text-stone-500 mt-0.5">Thêm, sửa, xóa các bàn trong nhà hàng.</p>
-      </div>
-      <button onClick={onAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-        + Thêm bàn
-      </button>
     </div>
   );
 }

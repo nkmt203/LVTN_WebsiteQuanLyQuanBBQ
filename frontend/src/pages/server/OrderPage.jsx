@@ -18,6 +18,7 @@ import { getErrorMessage } from "../../api/errorHandler";
 import { SERVER_URL } from "../../api/apiConfig";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import Toast from "../../components/common/Toast";
 import TransferTargetPicker from "../../components/table/TransferTargetPicker";
 
 const POLL_INTERVAL_MS = 5000;
@@ -130,7 +131,7 @@ function OrderPage() {
       return [
         ...prev,
         {
-          _tmp_id: Date.now() + Math.random(), 
+          _tmp_id: Date.now() + Math.random(),
           ma_mon_an: mon.ma_mon_an,
           ten_mon_an: mon.ten_mon_an,
           gia_ban: mon.gia_ban,
@@ -270,7 +271,10 @@ function OrderPage() {
     if (!cancelReason.trim()) return; // nút đã disabled, nhưng thêm cho chắc
     try {
       await cancelOrderItem(cancellingItem.ma_chi_tiet_hd, cancelReason.trim());
-      setFeedback({ type: "success", text: `Đã hủy ${cancellingItem.ten_mon_an}` });
+      setFeedback({
+        type: "success",
+        text: `Đã hủy ${cancellingItem.ten_mon_an}`,
+      });
       setCancelOpen(false);
       await loadBill();
     } catch (err) {
@@ -282,7 +286,8 @@ function OrderPage() {
   const handleCancelTable = () => {
     setConfirmState({
       title: "Hủy mở bàn",
-      description: "Hủy mở bàn này? Chỉ thực hiện được khi bàn chưa có món nào được gọi.",
+      description:
+        "Hủy mở bàn này? Chỉ thực hiện được khi bàn chưa có món nào được gọi.",
       confirmText: "Hủy mở bàn",
       danger: true,
       onConfirm: async () => {
@@ -336,7 +341,8 @@ function OrderPage() {
   const handleRequestPayment = () => {
     setConfirmState({
       title: "Yêu cầu thanh toán",
-      description: "Gửi yêu cầu thanh toán đến thu ngân? Sau bước này, bàn sẽ được thu ngân xử lý.",
+      description:
+        "Gửi yêu cầu thanh toán đến thu ngân? Sau bước này, bàn sẽ được thu ngân xử lý.",
       confirmText: "Gửi yêu cầu",
       onConfirm: async () => {
         await requestPayment(bill.ma_hoa_don);
@@ -352,7 +358,7 @@ function OrderPage() {
         <p className="text-red-600 mb-3">Bàn chưa được mở phục vụ.</p>
         <button
           onClick={() => navigate("/server/tables")}
-          className="text-teal-600 hover:underline"
+          className="text-teal-600 hover:underline transition-colors"
         >
           ← Quay lại sơ đồ bàn
         </button>
@@ -389,27 +395,21 @@ function OrderPage() {
         onClose={() => setTransferOpen(false)}
         title={`Chuyển "${bill.ten_ban}" sang bàn nào?`}
       >
-        <TransferTargetPicker tables={emptyTables} onPick={askConfirmTransfer} />
+        <TransferTargetPicker
+          tables={emptyTables}
+          onPick={askConfirmTransfer}
+        />
       </Modal>
 
-      {feedback && (
-        <div
-          className={
-            "mb-3 px-4 py-2 rounded-lg border text-sm " +
-            (feedback.type === "error"
-              ? "bg-red-50 border-red-200 text-red-700"
-              : feedback.type === "warning"
-                ? "bg-amber-50 border-amber-200 text-amber-700"
-                : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {feedback.text}
-        </div>
-      )}
+      <Toast
+        type={feedback?.type}
+        message={feedback?.text || ""}
+        onClose={() => setFeedback(null)}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-160px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-160px)] lg:min-h-0">
         {/* CỘT TRÁI: MENU */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-stone-200 p-4 flex flex-col lg:h-full lg:overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-stone-200 p-4 flex flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
           {/* Thanh chip danh mục */}
           <div className="shrink-0 flex flex-wrap gap-2 mb-3 pb-3 border-b border-stone-100">
             <CategoryChip
@@ -453,7 +453,7 @@ function OrderPage() {
         </div>
 
         {/* CỘT PHẢI: GIỎ */}
-        <div className="flex flex-col gap-3 lg:h-full lg:overflow-hidden">
+        <div className="flex flex-col gap-3 lg:h-full lg:min-h-0 lg:overflow-hidden">
           {/* GIỎ TẠM (chưa gửi) */}
           <div className="shrink-0 bg-amber-50 rounded-xl border-2 border-amber-300 p-3">
             <div className="flex justify-between items-center mb-2">
@@ -463,7 +463,7 @@ function OrderPage() {
               {pending.length > 0 && (
                 <button
                   onClick={clearAllPending}
-                  className="text-xs text-red-600 hover:underline"
+                  className="text-xs text-red-600 hover:underline transition-colors"
                 >
                   Xóa hết
                 </button>
@@ -492,7 +492,7 @@ function OrderPage() {
               <button
                 onClick={handleSubmitBatch}
                 disabled={submitting}
-                className="w-full mt-2 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50"
+                className="w-full mt-2 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50 transition-colors"
               >
                 {submitting
                   ? "Đang gửi..."
@@ -527,7 +527,7 @@ function OrderPage() {
               {cancelledSent.length > 0 && (
                 <button
                   onClick={() => setShowCancelled(!showCancelled)}
-                  className="text-xs text-stone-500 hover:text-stone-700 mt-2 py-1 border-t border-stone-100"
+                  className="text-xs text-stone-500 hover:text-stone-700 mt-2 py-1 border-t border-stone-100 transition-colors"
                 >
                   {showCancelled
                     ? `▲ Ẩn ${cancelledSent.length} món đã hủy`
@@ -595,12 +595,18 @@ function OrderPage() {
 // SUB-COMPONENTS
 // ============================================================
 
-const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer }) => (
+const OrderHeader = ({
+  bill,
+  onBack,
+  onCancelTable,
+  onRequestPayment,
+  onTransfer,
+}) => (
   <div className="flex items-center justify-between mb-4">
     <div>
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-base text-stone-500 hover:text-stone-700 mb-2 font-medium"
+        className="flex items-center gap-1.5 text-base text-stone-500 hover:text-stone-700 mb-2 font-medium transition-colors"
       >
         <ArrowLeft className="h-5 w-5" />
         Quay lại sơ đồ bàn
@@ -616,19 +622,19 @@ const OrderHeader = ({ bill, onBack, onCancelTable, onRequestPayment, onTransfer
     <div className="flex gap-2">
       <button
         onClick={onTransfer}
-        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg"
+        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg transition-colors"
       >
         🔀 Chuyển bàn
       </button>
       <button
         onClick={onCancelTable}
-        className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg"
+        className="text-sm text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
       >
         Hủy mở bàn
       </button>
       <button
         onClick={onRequestPayment}
-        className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg font-medium"
+        className="text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
       >
         💰 Yêu cầu thanh toán
       </button>
@@ -687,7 +693,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong - 1)}
-          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
+          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100 transition-colors"
         >
           −
         </button>
@@ -696,7 +702,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
         </span>
         <button
           onClick={() => onUpdateQty(item._tmp_id, item.so_luong + 1)}
-          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
+          className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100 transition-colors"
         >
           +
         </button>
@@ -706,7 +712,7 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
       </span>
       <button
         onClick={() => onRemove(item._tmp_id)}
-        className="shrink-0 text-stone-400 hover:text-red-500 text-base leading-none"
+        className="shrink-0 text-stone-400 hover:text-red-500 text-base leading-none transition-colors"
       >
         &times;
       </button>
@@ -722,10 +728,18 @@ const PendingItemCard = ({ item, onUpdateQty, onUpdateNote, onRemove }) => (
 );
 
 // Dòng món đã gửi bếp (từ DB) — gọn 1 hàng chính, thêm hàng phụ nếu có ghi chú/NV xác nhận
-const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) => {
+const SentItemCard = ({
+  item,
+  onUpdateQty,
+  onCancel,
+  onConfirmQr,
+  onRejectQr,
+}) => {
   const isCancelled = item.trang_thai === "Da_huy";
   const isPendingQr = item.trang_thai === "Cho_xac_nhan";
-  const canEdit = !["Da_hoan_thanh", "Da_huy", "Cho_xac_nhan"].includes(item.trang_thai);
+  const canEdit = !["Da_hoan_thanh", "Da_huy", "Cho_xac_nhan"].includes(
+    item.trang_thai,
+  );
   const status = ITEM_STATUS[item.trang_thai] || {
     cls: "",
     text: item.trang_thai,
@@ -753,7 +767,9 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
         >
           {item.ten_mon_an}
         </div>
-        <span className={"shrink-0 text-xs px-1.5 py-0.5 rounded " + status.cls}>
+        <span
+          className={"shrink-0 text-xs px-1.5 py-0.5 rounded " + status.cls}
+        >
           {status.text}
         </span>
 
@@ -761,14 +777,14 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => onUpdateQty(item, -1)}
-              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
+              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100 transition-colors"
             >
               −
             </button>
             <span className="w-5 text-center text-xs">{item.so_luong}</span>
             <button
               onClick={() => onUpdateQty(item, +1)}
-              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100"
+              className="w-5 h-5 rounded border border-stone-300 text-xs hover:bg-stone-100 transition-colors"
             >
               +
             </button>
@@ -786,7 +802,7 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
         {canEdit && (
           <button
             onClick={() => onCancel(item)}
-            className="shrink-0 text-xs text-red-500 hover:text-red-700"
+            className="shrink-0 text-xs text-red-500 hover:text-red-700 transition-colors"
           >
             Hủy
           </button>
@@ -795,16 +811,18 @@ const SentItemCard = ({ item, onUpdateQty, onCancel, onConfirmQr, onRejectQr }) 
 
       {isPendingQr && (
         <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-[10px] text-amber-700 flex-1">📱 Khách gọi qua QR — cần xác nhận</span>
+          <span className="text-[10px] text-amber-700 flex-1">
+            📱 Khách gọi qua QR — cần xác nhận
+          </span>
           <button
             onClick={() => onRejectQr(item)}
-            className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50"
+            className="text-xs px-2 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
           >
             Từ chối
           </button>
           <button
             onClick={() => onConfirmQr(item)}
-            className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+            className="text-xs px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
           >
             Xác nhận
           </button>
@@ -851,7 +869,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
         {CANCEL_REASONS.map((r) => (
           <label
             key={r}
-            className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50"
+            className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors"
           >
             <input
               type="radio"
@@ -865,7 +883,7 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
           </label>
         ))}
 
-        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50">
+        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors">
           <input
             type="radio"
             name="cancelReason"
@@ -892,14 +910,14 @@ const CancelItemForm = ({ reason, setReason, onConfirm, onCancel }) => {
       <div className="flex gap-2 justify-end mt-2">
         <button
           onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-600 hover:bg-stone-50"
+          className="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-600 hover:bg-stone-50 transition-colors"
         >
           Đóng
         </button>
         <button
           onClick={handleConfirm}
           disabled={!reason || (isCustom && !customReason.trim())}
-          className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Xác nhận hủy
         </button>

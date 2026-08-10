@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ClipboardList, CircleCheck, CirclePause, Plus } from "lucide-react";
 import {
   getAllRecipes,
   createRecipes,
@@ -15,6 +16,8 @@ import RecipeFilterBar from "../../components/recipe/RecipeFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 
 import { getErrorMessage } from "../../api/errorHandler";
 
@@ -26,6 +29,8 @@ function RecipePage() {
   const [ingredients, setIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({ total: 0, hoatDong: 0, ngungSuDung: 0 });
 
   const [keyword, setKeyword] = useState("");
   const [trangThai, setTrangThai] = useState("");
@@ -69,6 +74,23 @@ function RecipePage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, hoatDong, ngungSuDung] = await Promise.all([
+        getAllRecipes({ limit: 1 }),
+        getAllRecipes({ trang_thai: "Hoat_dong", limit: 1 }),
+        getAllRecipes({ trang_thai: "Ngung_su_dung", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        hoatDong: hoatDong.total || 0,
+        ngungSuDung: ngungSuDung.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
       // Tải dropdown: món ăn + nguyên liệu (lấy hết, không phân trang)
@@ -86,7 +108,7 @@ function RecipePage() {
         });
         setIngredients(Array.isArray(iResp.data) ? iResp.data : []);
       } catch {}
-      await loadData({ p: 1 });
+      await Promise.all([loadData({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -110,7 +132,7 @@ function RecipePage() {
       const r = await createRecipes(payload);
       setMessage("✅ " + r.message);
       setAddOpen(false);
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -138,7 +160,7 @@ function RecipePage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     setEditOpen(false);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   // === ĐỔI TRẠNG THÁI (popup xác nhận) ===
@@ -151,7 +173,7 @@ function RecipePage() {
     const res = await updateRecipeStatus(toggleTarget.ma_dinh_muc, next);
     setMessage("✅ " + res.message);
     setToggleTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   // === XÓA (popup xác nhận) ===
@@ -162,67 +184,86 @@ function RecipePage() {
     const r = await deleteRecipe(deleteTarget.ma_dinh_muc);
     setMessage("✅ " + r.message);
     setDeleteTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">
-            Quản lý Định mức nguyên liệu
-          </h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Thiết lập công thức nguyên liệu cho từng món ăn.
-          </p>
-        </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thiết lập định mức
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Định mức nguyên liệu</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Thiết lập công thức nguyên liệu cho từng món ăn.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard
+          label="Tổng số định mức"
+          value={stats.total}
+          icon={ClipboardList}
+          color="blue"
+        />
+        <StatCard
+          label="Đang áp dụng"
+          value={stats.hoatDong}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Ngừng áp dụng"
+          value={stats.ngungSuDung}
+          icon={CirclePause}
+          color="amber"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách định mức nguyên liệu</h3>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thiết lập định mức
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <RecipeFilterBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            trangThai={trangThai}
+            setTrangThai={setTrangThai}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <RecipeTable
+            recipes={recipes}
+            onEdit={handleEditClick}
+            onDelete={askDelete}
+            onToggleStatus={askToggleStatus}
+          />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <RecipeFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <RecipeTable
-        recipes={recipes}
-        onEdit={handleEditClick}
-        onDelete={askDelete}
-        onToggleStatus={askToggleStatus}
-      />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       {/* Modal THÊM (nhiều dòng) */}
       <Modal
