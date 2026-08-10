@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { endShift } from '../api/authApi';
-import { getErrorMessage } from '../api/errorHandler';
+import LogoutConfirmDialog from '../components/common/LogoutConfirmDialog';
+import EndShiftConfirmDialog from '../components/common/EndShiftConfirmDialog';
 
 const linkClass = ({ isActive }) =>
   [
@@ -13,6 +14,9 @@ const linkClass = ({ isActive }) =>
 function CashierLayout() {
   const { user, logout, loginSession } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
+  const [confirmEndShiftOpen, setConfirmEndShiftOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'Cashier Dashboard';
@@ -24,20 +28,20 @@ function CashierLayout() {
   };
 
   const handleEndShift = async () => {
-    try {
-      const resp = await endShift();
-      loginSession(resp.token, resp.user);
-      navigate('/select-profile');
-    } catch (err) {
-      alert(getErrorMessage(err));
-    }
+    const resp = await endShift();
+    loginSession(resp.token, resp.user);
+    setConfirmEndShiftOpen(false);
+    navigate('/select-profile');
   };
 
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col">
       <header className="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-emerald-600">💰 MeatOSync Thu ngân</h1>
+          <div className="flex items-center gap-2">
+            <img src="/logo_bbq_icon.png" alt="MeatOSync" className="h-7 w-7 object-contain shrink-0" />
+            <h1 className="text-lg font-bold text-emerald-600">MeatOSync Thu ngân</h1>
+          </div>
           <NavLink to="/cashier/bills" className={linkClass}>Hóa đơn</NavLink>
         </div>
         <div className="flex items-center gap-3">
@@ -45,19 +49,33 @@ function CashierLayout() {
             <div className="text-sm font-medium text-stone-800">{user?.ho_ten}</div>
             <div className="text-xs text-stone-500">{user?.ten_vai_tro}</div>
           </div>
-          <button onClick={handleEndShift}
-                  className="text-sm text-stone-600 hover:bg-stone-100 px-3 py-1.5 rounded-lg">
+          <button onClick={() => setConfirmEndShiftOpen(true)}
+                  className="text-sm text-stone-600 hover:bg-stone-100 px-3 py-1.5 rounded-lg transition-colors">
             Hết ca
           </button>
-          <button onClick={handleLogout}
-                  className="text-sm text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg">
+          <button onClick={() => setConfirmLogoutOpen(true)}
+                  className="text-sm text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
             Đăng xuất
           </button>
         </div>
       </header>
       <main className="flex-1 p-6">
-        <Outlet />
+        <div key={location.pathname} className="animate-page-in">
+          <Outlet />
+        </div>
       </main>
+
+      <EndShiftConfirmDialog
+        open={confirmEndShiftOpen}
+        onConfirm={handleEndShift}
+        onClose={() => setConfirmEndShiftOpen(false)}
+      />
+
+      <LogoutConfirmDialog
+        open={confirmLogoutOpen}
+        onConfirm={handleLogout}
+        onClose={() => setConfirmLogoutOpen(false)}
+      />
     </div>
   );
 }

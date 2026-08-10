@@ -10,8 +10,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Package, TriangleAlert, Sparkles } from "lucide-react";
 import { getForecast } from "../../api/forecastApi";
 import { getErrorMessage } from "../../api/errorHandler";
+import StatCard from "../../components/common/StatCard";
 
 // Nghiệp vụ 2.3.1.15 — AI dự báo nhu cầu nguyên liệu. Backend Node chuyển tiếp
 // yêu cầu sang forecast-service (Python + Prophet, phân hệ độc lập) rồi trả
@@ -203,18 +205,18 @@ function ForecastPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-5">
-        <h2 className="text-xl font-bold text-stone-800">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">
           Dự báo nhu cầu nguyên liệu
         </h2>
-        <p className="text-sm text-stone-500 mt-0.5">
+        <p className="text-xs text-stone-500 mt-0.5">
           Phân tích chu kỳ tiêu thụ theo từng Thứ trong tuần để chủ động nhập
           kho
         </p>
       </div>
 
       {/* Nút kích hoạt AI phân tích */}
-      <div className="bg-white rounded-xl border border-stone-200 p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-stone-600">
           Trợ lý AI sẽ phân tích lịch sử bán hàng để dự báo nhu cầu nguyên liệu
           theo từng Thứ trong tuần.
@@ -236,7 +238,7 @@ function ForecastPage() {
       </div>
 
       {dangChay && (
-        <div className="bg-white rounded-xl border border-stone-200 p-8 mb-5 flex flex-col items-center justify-center gap-3">
+        <div className="bg-white rounded-xl shadow-sm p-8 mb-5 flex flex-col items-center justify-center gap-3">
           <span className="h-8 w-8 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin"></span>
           <p className="text-sm text-stone-600">
             {BUOC_PHAN_TICH[buocHienTai]}
@@ -263,43 +265,32 @@ function ForecastPage() {
       {ketQua && !dangChay && (
         <>
           {/* Stat tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <div className="bg-white rounded-xl border border-stone-200 p-4">
-              <div className="text-xs text-stone-500">
-                Nguyên liệu đang theo dõi
-              </div>
-              <div className="text-2xl font-semibold text-stone-800 mt-1">
-                {ketQua.length}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-stone-200 p-4">
-              <div className="text-xs text-stone-500">
-                Cần nhập thêm (7 ngày tới)
-              </div>
-              <div
-                className={
-                  "text-2xl font-semibold mt-1 " +
-                  (soCanNhapThem > 0 ? "text-red-600" : "text-stone-800")
-                }
-              >
-                {soCanNhapThem}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-stone-200 p-4">
-              <div className="text-xs text-stone-500">
-                Nguyên liệu đủ điều kiện dùng AI
-              </div>
-              <div className="text-2xl font-semibold text-indigo-600 mt-1">
-                {soDungProphet}/{ketQua.length}
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
+            <StatCard
+              label="Nguyên liệu đang theo dõi"
+              value={ketQua.length}
+              icon={Package}
+              color="blue"
+            />
+            <StatCard
+              label="Cần nhập thêm (7 ngày tới)"
+              value={soCanNhapThem}
+              icon={TriangleAlert}
+              color={soCanNhapThem > 0 ? "red" : "stone"}
+            />
+            <StatCard
+              label="Nguyên liệu đủ điều kiện dùng AI"
+              value={`${soDungProphet}/${ketQua.length}`}
+              icon={Sparkles}
+              color="indigo"
+            />
           </div>
 
           {/* Khu vực 1: chỉ 1 nguyên liệu, 1 biểu đồ to */}
           <div className="mb-2 text-sm font-semibold text-stone-700">
             📅 Chi tiết dự báo theo ngày
           </div>
-          <div className="bg-white rounded-xl border border-stone-200 p-4 mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-8">
             {dsDungProphet.length === 0 ? (
               <p className="text-sm text-stone-500">
                 Chưa có nguyên liệu nào đủ dữ liệu lịch sử (cần ≥ 14 ngày) để
@@ -370,9 +361,9 @@ function ForecastPage() {
                     />
 
                     {/* Bảng chi tiết theo ngày */}
-                    <div className="mt-4 overflow-hidden rounded-lg border border-stone-200">
+                    <div className="mt-4 overflow-hidden rounded-lg shadow-sm">
                       <table className="w-full text-sm">
-                        <thead className="bg-stone-50 text-stone-500 text-xs uppercase">
+                        <thead className="bg-blue-50 border-b border-blue-100 text-blue-900 text-xs font-bold uppercase tracking-wide">
                           <tr>
                             <th className="px-3 py-2 text-left">Ngày</th>
                             <th className="px-3 py-2 text-right">Dự báo</th>
@@ -396,7 +387,7 @@ function ForecastPage() {
                             return (
                               <tr
                                 key={d.ngay}
-                                className="border-t border-stone-100"
+                                className="border-t border-stone-100 hover:bg-stone-50 transition-colors"
                               >
                                 <td className="px-3 py-2 text-stone-700">
                                   {d.thu}, {formatNgay(d.ngay)}
@@ -443,10 +434,10 @@ function ForecastPage() {
           <div className="mb-2 text-sm font-semibold text-stone-700">
             📦 Gợi ý nhập hàng (7 ngày tới)
           </div>
-          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="max-h-[75vh] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="bg-stone-50 text-stone-500 text-xs uppercase sticky top-0 z-10">
+                <thead className="bg-blue-50 border-b border-blue-100 text-blue-900 text-xs font-bold uppercase tracking-wide sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-2 text-left">Nguyên liệu</th>
                     <th className="px-3 py-2 text-center">Đơn vị</th>
@@ -469,13 +460,13 @@ function ForecastPage() {
                     return (
                       <tr
                         key={ing.ma_nguyen_lieu}
-                        className="border-t border-stone-100"
+                        className="border-t border-stone-100 hover:bg-stone-50 transition-colors"
                       >
                         <td className="px-3 py-2">
-                          <div className="text-stone-800">
+                          <div className="font-medium text-stone-800">
                             {ing.ten_nguyen_lieu}
                           </div>
-                          <div className="text-xs text-stone-400">
+                          <div className="text-xs font-medium text-stone-400">
                             #{ing.ma_nguyen_lieu}
                           </div>
                         </td>

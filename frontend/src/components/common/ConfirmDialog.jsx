@@ -50,10 +50,10 @@ function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/40 animate-fade-in"
         onClick={() => !loading && onClose()}
       ></div>
-      <div className="relative bg-white rounded-2xl shadow-lg w-full max-w-sm mx-4 p-5">
+      <div className="relative bg-white rounded-2xl shadow-lg w-full max-w-sm mx-4 p-5 animate-scale-in">
         <div className="flex items-start gap-3">
           <div
             className={

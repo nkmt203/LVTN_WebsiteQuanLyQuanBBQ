@@ -4,17 +4,6 @@ import { login } from '../../api/authApi';
 import { useAuth } from '../../context/AuthContext';
 import { getErrorMessage } from '../../api/errorHandler';
 
-function FlameIcon({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path
-        d="M12 2c1.2 2.4-1.8 4-1.8 6.5 0 1 .6 1.8 1.8 1.8s1.8-1 1.8-2.1c1.6 1.3 3.2 3.6 3.2 6.1 0 3.9-3.1 7.2-7 7.2s-7-3.1-7-6.9c0-4.6 3.4-7 5-9.6.4 1.2 1 1.9 1.4 2.3.2-1.9 1.1-3.5 2.6-5.3Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 function UserIcon({ className }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -85,7 +74,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen flex bg-stone-100">
       {/* Panel thương hiệu - chỉ hiện từ md trở lên */}
-      <div className="hidden md:flex relative w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-stone-900 via-orange-950 to-stone-900 text-stone-100 p-12">
+      <div className="hidden md:flex relative w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-stone-900 via-orange-950 to-stone-900 text-stone-100 p-12 animate-fade-in">
         <div
           className="pointer-events-none absolute inset-0 opacity-20"
           style={{
@@ -98,7 +87,7 @@ function LoginPage() {
         />
 
         <div className="relative flex items-center gap-2">
-          <FlameIcon className="h-8 w-8 text-orange-500" />
+          <img src="/logo_bbq_icon.png" alt="MeatOSync" className="h-9 w-9 object-contain shrink-0" />
           <span className="text-lg font-semibold tracking-wide">MeatOSync</span>
         </div>
 
@@ -119,10 +108,10 @@ function LoginPage() {
 
       {/* Panel đăng nhập */}
       <div className="flex flex-1 items-center justify-center p-6">
-        <form onSubmit={handleSubmit} className="w-full max-w-sm">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm animate-scale-in">
           <div className="mb-8 flex flex-col items-center text-center md:items-start md:text-left">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600 shadow-lg shadow-orange-600/30 md:hidden">
-              <FlameIcon className="h-6 w-6 text-white" />
+            <div className="mb-3 flex h-14 w-14 items-center justify-center md:hidden">
+              <img src="/logo_bbq_icon.png" alt="MeatOSync" className="h-14 w-14 object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-stone-800">Đăng nhập</h1>
             <p className="mt-1 text-sm text-stone-500">

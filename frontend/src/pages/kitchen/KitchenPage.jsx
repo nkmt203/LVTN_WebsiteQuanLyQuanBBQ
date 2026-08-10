@@ -4,16 +4,9 @@ import { getPendingOrders, completeOrderItem, acknowledgeCancellation } from '..
 import { getErrorMessage } from '../../api/errorHandler';
 import { SERVER_URL } from '../../api/apiConfig';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import Toast from '../../components/common/Toast';
 
 const POLL_INTERVAL_MS = 5000;
-
-// Các sự kiện realtime liên quan tới bếp 
-const KITCHEN_EVENTS = [
-  'kitchen:new-batch',
-  'kitchen:update-qty',
-  'kitchen:cancel-item',
-  'kitchen:table-transfer',
-];
 
 function KitchenPage() {
   const [orders, setOrders] = useState([]);
@@ -23,6 +16,12 @@ function KitchenPage() {
   const [confirmState, setConfirmState] = useState(null);
   // { title, description, confirmText, onConfirm }
   const timerRef = useRef(null);
+
+  // Ghi nhớ thường trực (không tự tắt) các món vừa bị đổi SL và các bill vừa
+  // được chuyển bàn, hiện ngay tại chỗ để bếp luôn thấy rõ, tránh nấu nhầm
+  // theo SL/bàn cũ dù xem lại vé sau vài phút chứ không chỉ lúc vừa đổi
+  const [qtyChanges, setQtyChanges] = useState({});
+  const [transferredFrom, setTransferredFrom] = useState({});
 
   // ===== LOAD =====
   const loadOrders = async () => {
@@ -47,9 +46,31 @@ function KitchenPage() {
   }, []);
 
   // ===== SOCKET.IO: tải lại ngay khi bếp có đơn/thay đổi mới, không cần chờ poll =====
+  // Riêng đổi SL và chuyển bàn: hiện rõ nội dung thay đổi + tô sáng dòng/vé liên
+  // quan một lúc, tránh bếp nấu nhầm theo SL/bàn cũ mà không để ý bill vừa đổi.
   useEffect(() => {
     const socket = ioClient(SERVER_URL);
-    KITCHEN_EVENTS.forEach((ev) => socket.on(ev, loadOrders));
+    socket.on('kitchen:new-batch', loadOrders);
+    socket.on('kitchen:cancel-item', loadOrders);
+    socket.on('kitchen:update-qty', (p) => {
+      setFeedback({
+        type: 'warning',
+        text: `${p.ten_ban}: "${p.ten_mon_an}" vừa đổi số lượng ${p.so_luong_cu} → ${p.so_luong_moi}`,
+      });
+      setQtyChanges((h) => ({
+        ...h,
+        [p.ma_chi_tiet_hd]: { tu: p.so_luong_cu, den: p.so_luong_moi },
+      }));
+      loadOrders();
+    });
+    socket.on('kitchen:table-transfer', (p) => {
+      setFeedback({
+        type: 'warning',
+        text: `Vừa chuyển bàn: ${p.ten_ban_nguon} → ${p.ten_ban_dich}`,
+      });
+      setTransferredFrom((h) => ({ ...h, [p.ma_hoa_don_moi]: p.ten_ban_nguon }));
+      loadOrders();
+    });
     return () => socket.disconnect();
   }, []);
 
@@ -127,18 +148,11 @@ function KitchenPage() {
         onRefresh={loadOrders}
       />
 
-      {feedback && (
-        <div
-          className={
-            'mb-4 px-4 py-2 rounded-lg border text-sm whitespace-pre-line shadow-sm ' +
-            (feedback.type === 'error'
-              ? 'bg-red-50 border-red-200 text-red-700'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-700')
-          }
-        >
-          {feedback.text}
-        </div>
-      )}
+      <Toast
+        type={feedback?.type}
+        message={feedback?.text || ''}
+        onClose={() => setFeedback(null)}
+      />
 
       {activeTables.length === 0 ? (
         <div className="bg-white rounded-xl p-12 text-center border border-stone-200 shadow-sm">
@@ -154,6 +168,8 @@ function KitchenPage() {
             <TableOrderCard
               key={t.ma_hoa_don}
               table={t}
+              transferredFrom={transferredFrom[t.ma_hoa_don]}
+              qtyChanges={qtyChanges}
               onComplete={handleComplete}
               onAckCancel={handleAcknowledgeCancel}
             />
@@ -189,12 +205,12 @@ const KitchenHeader = ({ totalTables, totalItems, lastRefresh, onRefresh }) => (
       </p>
     </div>
     <div className="flex items-center gap-3">
-      <span className="text-xs text-stone-400">
+      <span className="text-base font-semibold text-stone-700">
         Cập nhật lúc: {lastRefresh.toLocaleTimeString('vi-VN')}
       </span>
       <button
         onClick={onRefresh}
-        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg bg-white"
+        className="text-sm text-stone-600 border border-stone-300 hover:bg-stone-100 px-3 py-1.5 rounded-lg bg-white transition-colors"
       >
         ↻ Làm mới
       </button>
@@ -215,7 +231,7 @@ const groupByBatch = (items) => {
     .map(([time, list]) => ({ time, items: list }));
 };
 
-const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
+const TableOrderCard = ({ table, transferredFrom, qtyChanges, onComplete, onAckCancel }) => {
   const [showDone, setShowDone] = useState(false);
 
   // Bill chính = tất cả trừ món hủy đã tiếp nhận (đã xử lý xong, không cần hiện nữa)
@@ -240,7 +256,14 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
       {/* Header */}
       <div className="bg-stone-50 border-b border-stone-200 px-3 py-2 flex justify-between items-center gap-2 shrink-0">
         <div className="min-w-0">
-          <div className="font-bold text-stone-800 text-sm truncate">{table.ten_ban}</div>
+          <div className="font-bold text-stone-800 text-sm truncate">
+            {table.ten_ban}
+            {transferredFrom && (
+              <span className="ml-1.5 text-xs font-semibold text-amber-600 whitespace-nowrap">
+                🔄 Đã chuyển từ {transferredFrom}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-stone-500 truncate">{table.ten_khu_vuc}</div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -289,6 +312,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
                   <OrderItemRow
                     key={item.ma_chi_tiet_hd}
                     item={item}
+                    qtyChange={qtyChanges[item.ma_chi_tiet_hd]}
                     onComplete={onComplete}
                     onAckCancel={onAckCancel}
                   />
@@ -302,7 +326,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
           <div className="border-t border-stone-100">
             <button
               onClick={() => setShowDone((v) => !v)}
-              className="w-full text-left px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-50"
+              className="w-full text-left px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700 hover:bg-stone-50 transition-colors"
             >
               {showDone ? '▲ Ẩn' : '▼ Hiện'} {doneItems.length} món đã xong
             </button>
@@ -327,7 +351,7 @@ const TableOrderCard = ({ table, onComplete, onAckCancel }) => {
   );
 };
 
-const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
+const OrderItemRow = ({ item, qtyChange, onComplete, onAckCancel }) => {
   const isDone = item.trang_thai === 'Da_hoan_thanh';
   const isCancelled = item.trang_thai === 'Da_huy';
 
@@ -353,7 +377,7 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
         <td className="px-2 py-2 text-center">
           <button
             onClick={() => onAckCancel(item)}
-            className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold text-xs"
+            className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white font-bold text-xs transition-colors"
             title="Đã dừng chế biến"
           >
             ✓
@@ -392,12 +416,19 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
     'text-stone-400';
 
   return (
-    <tr className="border-t border-stone-100 hover:bg-orange-50/50">
+    <tr className="border-t border-stone-100 hover:bg-orange-50/50 transition-colors">
       <td className="px-2 py-2 text-center text-orange-600 font-bold">
         {item.so_luong}
       </td>
       <td className="px-2 py-2 text-stone-800">
-        <div>{item.ten_mon_an}</div>
+        <div className="flex items-center gap-1.5">
+          {item.ten_mon_an}
+          {qtyChange && (
+            <span className="shrink-0 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+              🔄 SL: {qtyChange.tu} → {qtyChange.den}
+            </span>
+          )}
+        </div>
         <div className={`text-xs ${waitCls}`}>⏱ {item.phut_da_cho}p</div>
       </td>
       <td className="px-2 py-2 text-xs text-stone-500 italic">
@@ -406,7 +437,7 @@ const OrderItemRow = ({ item, onComplete, onAckCancel }) => {
       <td className="px-2 py-2 text-center">
         <button
           onClick={() => onComplete(item)}
-          className="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold"
+          className="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors"
           title="Hoàn thành"
         >
           ✓

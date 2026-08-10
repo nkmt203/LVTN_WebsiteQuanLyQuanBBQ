@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { Receipt, TrendingUp, Banknote, CreditCard } from "lucide-react";
 import { getBills, getBillDetail, getRevenueSummary } from "../../api/cashierApi";
 import { getErrorMessage } from "../../api/errorHandler";
 import Modal from "../../components/common/Modal";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const POLL_INTERVAL_MS = 5000; // Tự làm mới doanh thu vì Thu ngân có thể vừa thanh toán hóa đơn mới
@@ -62,25 +65,23 @@ function RevenuePage() {
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="mb-5">
-        <h2 className="text-xl font-bold text-stone-800">Báo cáo doanh thu</h2>
-        <p className="text-sm text-stone-500 mt-0.5">
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Báo cáo doanh thu</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
           Tra cứu hóa đơn đã thanh toán và tổng doanh thu theo khoảng ngày.
         </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-4 mb-4 flex flex-wrap items-end gap-3">
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
         <div>
           <label className="text-xs text-stone-500 block mb-1">Từ ngày</label>
           <input
             type="date"
             value={tuNgay}
             onChange={(e) => setTuNgay(e.target.value)}
-            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
           />
         </div>
         <div>
@@ -89,97 +90,94 @@ function RevenuePage() {
             type="date"
             value={denNgay}
             onChange={(e) => setDenNgay(e.target.value)}
-            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm bg-stone-50 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
           />
         </div>
         <button
           onClick={handleSearch}
-          className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           Tra cứu
         </button>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
-        </div>
-      )}
+      <Toast message={message} onClose={() => setMessage("")} />
 
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <SummaryBox label="Tổng hóa đơn" value={summary.tong_so_hoa_don} />
-          <SummaryBox
+          <StatCard label="Tổng hóa đơn" value={summary.tong_so_hoa_don} icon={Receipt} color="blue" />
+          <StatCard
             label="Tổng doanh thu"
             value={`${summary.tong_doanh_thu.toLocaleString("vi-VN")}đ`}
+            icon={TrendingUp}
+            color="emerald"
           />
-          <SummaryBox
+          <StatCard
             label="Tiền mặt"
             value={`${summary.theo_hinh_thuc.Tien_mat.toLocaleString("vi-VN")}đ`}
+            icon={Banknote}
+            color="amber"
           />
-          <SummaryBox
+          <StatCard
             label="Chuyển khoản"
             value={`${summary.theo_hinh_thuc.Chuyen_khoan.toLocaleString("vi-VN")}đ`}
+            icon={CreditCard}
+            color="stone"
           />
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-stone-50">
-            <tr>
-              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Mã HĐ</th>
-              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Bàn</th>
-              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Khu vực</th>
-              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Thanh toán lúc</th>
-              <th className="text-left text-xs font-semibold text-stone-500 uppercase px-4 py-3">Hình thức</th>
-              <th className="text-right text-xs font-semibold text-stone-500 uppercase px-4 py-3">Tổng tiền</th>
-              <th className="text-center text-xs font-semibold text-stone-500 uppercase px-4 py-3">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bills.length === 0 && (
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm table-fixed">
+            <thead className="bg-blue-50 border-b border-blue-100">
               <tr>
-                <td className="px-4 py-6 text-center text-stone-400" colSpan={7}>
-                  Không có hóa đơn nào trong khoảng ngày đã chọn.
-                </td>
+                <th className="text-left text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[10%]">Mã HĐ</th>
+                <th className="text-left text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[14%]">Bàn</th>
+                <th className="text-left text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[14%]">Khu vực</th>
+                <th className="text-left text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[20%]">Thanh toán lúc</th>
+                <th className="text-left text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[14%]">Hình thức</th>
+                <th className="text-right text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[14%]">Tổng tiền</th>
+                <th className="text-center text-xs font-bold text-blue-900 uppercase tracking-wide px-3 py-2 w-[14%]">Thao tác</th>
               </tr>
-            )}
-            {bills.map((b) => (
-              <tr key={b.ma_hoa_don} className="border-t border-stone-100 hover:bg-stone-50">
-                <td className="px-4 py-2.5">#{b.ma_hoa_don}</td>
-                <td className="px-4 py-2.5 font-medium text-stone-800">{b.ten_ban}</td>
-                <td className="px-4 py-2.5 text-stone-500">{b.ten_khu_vuc}</td>
-                <td className="px-4 py-2.5 text-stone-500">
-                  {b.thoi_gian_dong_ban
-                    ? new Date(b.thoi_gian_dong_ban).toLocaleString("vi-VN")
-                    : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  {b.hinh_thuc_thanh_toan === "Tien_mat" ? "Tiền mặt" : "Chuyển khoản"}
-                </td>
-                <td className="px-4 py-2.5 text-right font-medium">
-                  {Number(b.tong_tien_thanh_toan).toLocaleString("vi-VN")}đ
-                </td>
-                <td className="px-4 py-2.5 text-center">
-                  <button
-                    onClick={() => handleViewDetail(b)}
-                    className="text-stone-600 hover:text-stone-900 text-sm"
-                  >
-                    Xem chi tiết
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {bills.length === 0 && (
+                <tr>
+                  <td className="px-3 py-6 text-center text-stone-400" colSpan={7}>
+                    Không có hóa đơn nào trong khoảng ngày đã chọn.
+                  </td>
+                </tr>
+              )}
+              {bills.map((b) => (
+                <tr key={b.ma_hoa_don} className="border-t border-stone-100 hover:bg-stone-50 transition-colors">
+                  <td className="px-3 py-2">#{b.ma_hoa_don}</td>
+                  <td className="px-3 py-2 font-medium text-stone-800 truncate">{b.ten_ban}</td>
+                  <td className="px-3 py-2 text-stone-500 truncate">{b.ten_khu_vuc}</td>
+                  <td className="px-3 py-2 text-stone-500">
+                    {b.thoi_gian_dong_ban
+                      ? new Date(b.thoi_gian_dong_ban).toLocaleString("vi-VN")
+                      : "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    {b.hinh_thuc_thanh_toan === "Tien_mat" ? "Tiền mặt" : "Chuyển khoản"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium">
+                    {Number(b.tong_tien_thanh_toan).toLocaleString("vi-VN")}đ
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <button
+                      onClick={() => handleViewDetail(b)}
+                      className="text-stone-600 hover:text-stone-900 text-sm transition-colors"
+                    >
+                      Xem chi tiết
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Modal
@@ -226,12 +224,5 @@ function RevenuePage() {
     </div>
   );
 }
-
-const SummaryBox = ({ label, value }) => (
-  <div className="bg-white rounded-xl border border-stone-200 p-4">
-    <div className="text-xs text-stone-500 mb-1">{label}</div>
-    <div className="text-lg font-bold text-stone-800">{value}</div>
-  </div>
-);
 
 export default RevenuePage;

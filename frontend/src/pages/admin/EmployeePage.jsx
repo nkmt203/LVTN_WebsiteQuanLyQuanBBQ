@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Users, CircleCheck, CirclePause, Plus } from "lucide-react";
 import {
   getAllEmployees,
   getActiveAccounts,
@@ -12,6 +13,8 @@ import EmployeeFilterBar from "../../components/employee/EmployeeFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 import { getErrorMessage } from "../../api/errorHandler";
 
 const PER_PAGE = 10;
@@ -21,6 +24,8 @@ function EmployeePage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({ total: 0, hoatDong: 0, ngungHoatDong: 0 });
 
   const [keyword, setKeyword] = useState("");
   const [maTaiKhoan, setMaTaiKhoan] = useState("");
@@ -67,12 +72,29 @@ function EmployeePage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, hoatDong, ngungHoatDong] = await Promise.all([
+        getAllEmployees({ limit: 1 }),
+        getAllEmployees({ trang_thai: "Hoat_dong", limit: 1 }),
+        getAllEmployees({ trang_thai: "Ngung_hoat_dong", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        hoatDong: hoatDong.total || 0,
+        ngungHoatDong: ngungHoatDong.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
       try {
         setAccounts(await getActiveAccounts());
       } catch {}
-      await loadData({ p: 1 });
+      await Promise.all([loadData({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -126,7 +148,7 @@ function EmployeePage() {
       });
       setMessage("✅ " + r.message);
       closeForm();
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -141,7 +163,7 @@ function EmployeePage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   function requestSave() {
@@ -162,70 +184,89 @@ function EmployeePage() {
     const r = await updateEmployeeStatus(toggleTarget.ma_nhan_vien, next);
     setMessage("✅ " + r.message);
     setToggleTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">
-            Quản lý Nhân viên
-          </h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Thêm, sửa thông tin và đổi trạng thái hồ sơ nhân viên. Vai trò được
-            xác định tự động theo tài khoản gán lúc tạo.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thêm nhân viên
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Nhân viên</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Thêm, sửa thông tin và đổi trạng thái hồ sơ nhân viên. Vai trò được
+          xác định tự động theo tài khoản gán lúc tạo.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard
+          label="Tổng số nhân viên"
+          value={stats.total}
+          icon={Users}
+          color="blue"
+        />
+        <StatCard
+          label="Đang hoạt động"
+          value={stats.hoatDong}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Ngừng hoạt động"
+          value={stats.ngungHoatDong}
+          icon={CirclePause}
+          color="amber"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách nhân viên</h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm nhân viên
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <EmployeeFilterBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            maTaiKhoan={maTaiKhoan}
+            setMaTaiKhoan={setMaTaiKhoan}
+            trangThai={trangThai}
+            setTrangThai={setTrangThai}
+            accounts={accounts}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <EmployeeTable
+            employees={employees}
+            onEdit={handleEdit}
+            onToggleStatus={askToggleStatus}
+          />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <EmployeeFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        maTaiKhoan={maTaiKhoan}
-        setMaTaiKhoan={setMaTaiKhoan}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        accounts={accounts}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <EmployeeTable
-        employees={employees}
-        onEdit={handleEdit}
-        onToggleStatus={askToggleStatus}
-      />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       <Modal
         open={formOpen}

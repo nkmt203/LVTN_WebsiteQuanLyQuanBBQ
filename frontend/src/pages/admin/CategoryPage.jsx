@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Layers, CircleCheck, CirclePause, Plus } from "lucide-react";
 import {
   getAllCategories,
   createCategory,
@@ -12,6 +13,8 @@ import CategoryFilterBar from "../../components/category/CategoryFilterBar";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 
 import { getErrorMessage } from "../../api/errorHandler";
 
@@ -21,6 +24,8 @@ function CategoryPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({ total: 0, dangSuDung: 0, ngungSuDung: 0 });
 
   const [keyword, setKeyword] = useState("");
   const [trangThai, setTrangThai] = useState("");
@@ -60,9 +65,26 @@ function CategoryPage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, dangSuDung, ngungSuDung] = await Promise.all([
+        getAllCategories({ limit: 1 }),
+        getAllCategories({ trang_thai: "Dang_su_dung", limit: 1 }),
+        getAllCategories({ trang_thai: "Ngung_su_dung", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        dangSuDung: dangSuDung.total || 0,
+        ngungSuDung: ngungSuDung.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
-      await loadData({ p: 1 });
+      await Promise.all([loadData({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -107,7 +129,7 @@ function CategoryPage() {
       const r = await createCategory({ ten_danh_muc: tenDanhMuc, mo_ta: moTa });
       setMessage("✅ " + r.message);
       closeForm();
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -122,7 +144,7 @@ function CategoryPage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   function requestSave() {
@@ -145,7 +167,7 @@ function CategoryPage() {
     const r = await updateCategoryStatus(toggleTarget.ma_danh_muc, next);
     setMessage("✅ " + r.message);
     setToggleTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   // Xóa (popup xác nhận)
@@ -156,65 +178,86 @@ function CategoryPage() {
     const r = await deleteCategory(deleteTarget.ma_danh_muc);
     setMessage("✅ " + r.message);
     setDeleteTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">Quản lý Danh mục</h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Thêm, sửa, đổi trạng thái và xóa danh mục thực đơn.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thêm danh mục
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Danh mục</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Thêm, sửa, đổi trạng thái và xóa danh mục thực đơn.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard
+          label="Tổng số danh mục"
+          value={stats.total}
+          icon={Layers}
+          color="blue"
+        />
+        <StatCard
+          label="Đang sử dụng"
+          value={stats.dangSuDung}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Ngừng sử dụng"
+          value={stats.ngungSuDung}
+          icon={CirclePause}
+          color="amber"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách danh mục</h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm danh mục
+          </button>
+        </div>
+
+        <div className="border-b border-stone-100">
+          <CategoryFilterBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            trangThai={trangThai}
+            setTrangThai={setTrangThai}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <CategoryTable
+            categories={categories}
+            onEdit={handleEdit}
+            onDelete={askDelete}
+            onToggleStatus={askToggleStatus}
+          />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <CategoryFilterBar
-        keyword={keyword}
-        setKeyword={setKeyword}
-        trangThai={trangThai}
-        setTrangThai={setTrangThai}
-        onSearch={handleSearch}
-        onReset={handleReset}
-      />
-
-      <CategoryTable
-        categories={categories}
-        onEdit={handleEdit}
-        onDelete={askDelete}
-        onToggleStatus={askToggleStatus}
-      />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       <Modal
         open={formOpen}

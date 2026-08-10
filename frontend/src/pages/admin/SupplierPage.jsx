@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Truck, CircleCheck, CirclePause, Plus } from "lucide-react";
 import {
   getAllSuppliers,
   createSupplier,
@@ -10,6 +11,8 @@ import SupplierTable from "../../components/supplier/SupplierTable";
 import Pagination from "../../components/common/Pagination";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import StatCard from "../../components/common/StatCard";
+import Toast from "../../components/common/Toast";
 
 import { getErrorMessage } from "../../api/errorHandler";
 
@@ -19,6 +22,8 @@ function SupplierPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const [stats, setStats] = useState({ total: 0, hoatDong: 0, ngungHopTac: 0 });
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -52,9 +57,26 @@ function SupplierPage() {
     }
   }
 
+  async function loadStats() {
+    try {
+      const [all, hoatDong, ngungHopTac] = await Promise.all([
+        getAllSuppliers({ limit: 1 }),
+        getAllSuppliers({ trang_thai: "Hoat_dong", limit: 1 }),
+        getAllSuppliers({ trang_thai: "Ngung_hop_tac", limit: 1 }),
+      ]);
+      setStats({
+        total: all.total || 0,
+        hoatDong: hoatDong.total || 0,
+        ngungHopTac: ngungHopTac.total || 0,
+      });
+    } catch {
+      // bỏ qua lỗi thống kê, không ảnh hưởng danh sách chính
+    }
+  }
+
   useEffect(() => {
     async function init() {
-      await loadData({ p: 1 });
+      await Promise.all([loadData({ p: 1 }), loadStats()]);
       setLoading(false);
     }
     init();
@@ -104,7 +126,7 @@ function SupplierPage() {
       const r = await createSupplier(buildSupplierPayload());
       setMessage("✅ " + r.message);
       closeForm();
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       setMessage("❌ " + getErrorMessage(err));
     }
@@ -116,7 +138,7 @@ function SupplierPage() {
     setMessage("✅ " + r.message);
     setConfirmUpdateOpen(false);
     closeForm();
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   function requestSave() {
@@ -137,55 +159,74 @@ function SupplierPage() {
     const r = await updateSupplierStatus(toggleTarget.ma_nha_cung_cap, next);
     setMessage("✅ " + r.message);
     setToggleTarget(null);
-    await loadData();
+    await Promise.all([loadData(), loadStats()]);
   }
 
   if (loading) return <p className="text-stone-500 p-4">Đang tải...</p>;
 
-  const isError = message.startsWith("❌");
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="text-xl font-bold text-stone-800">Quản lý Nhà cung cấp</h2>
-          <p className="text-sm text-stone-500 mt-0.5">
-            Danh mục nhà cung cấp dùng khi lập phiếu nhập kho.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + Thêm nhà cung cấp
-        </button>
+    <div className="max-w-7xl">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-stone-800">Quản lý Nhà cung cấp</h2>
+        <p className="text-xs text-stone-500 mt-0.5">
+          Danh mục nhà cung cấp dùng khi lập phiếu nhập kho.
+        </p>
       </div>
 
-      {message && (
-        <div
-          className={
-            "mb-4 px-4 py-2 rounded-lg border text-sm " +
-            (isError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700")
-          }
-        >
-          {message}
+      <div className="grid grid-cols-3 gap-3 mb-2">
+        <StatCard
+          label="Tổng số nhà cung cấp"
+          value={stats.total}
+          icon={Truck}
+          color="blue"
+        />
+        <StatCard
+          label="Đang hợp tác"
+          value={stats.hoatDong}
+          icon={CircleCheck}
+          color="emerald"
+        />
+        <StatCard
+          label="Ngừng hợp tác"
+          value={stats.ngungHopTac}
+          icon={CirclePause}
+          color="amber"
+        />
+      </div>
+
+      <Toast message={message} onClose={() => setMessage("")} />
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <h3 className="text-sm font-bold text-stone-800">Danh sách nhà cung cấp</h3>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition-shadow"
+          >
+            <Plus size={16} />
+            Thêm nhà cung cấp
+          </button>
+        </div>
+
+        <div key={page} className="animate-fade-in">
+          <SupplierTable
+            suppliers={suppliers}
+            onEdit={handleEdit}
+            onToggleStatus={askToggleStatus}
+          />
+        </div>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 px-2">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
-
-      <SupplierTable
-        suppliers={suppliers}
-        onEdit={handleEdit}
-        onToggleStatus={askToggleStatus}
-      />
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        onPageChange={handlePageChange}
-      />
 
       <Modal
         open={formOpen}
