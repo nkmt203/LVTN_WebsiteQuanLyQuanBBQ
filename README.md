@@ -14,7 +14,7 @@
 - `forecast-service/` — service Python (Flask + Prophet) cho module AI dự báo nguyên liệu
 
 ## Cách chạy
-1. Import `database/db_quan_ly_bbq_v1.sql` rồi `database/seed_data_bbq.sql` vào MySQL.
+1. Import `database/db_quan_ly_bbq_v1.sql` rồi `database/seed_data_bbq_v1.sql` vào MySQL.
 2. Backend: vào `backend/`, tạo file `.env` theo mẫu `.env.example`, chạy `npm install` rồi `npm run dev`.
 3. Frontend: vào `frontend/`, chạy `npm install` rồi `npm run dev`.
 4. Forecast service (module "Dự báo nguyên liệu" trong Admin — cần chạy song song với backend):

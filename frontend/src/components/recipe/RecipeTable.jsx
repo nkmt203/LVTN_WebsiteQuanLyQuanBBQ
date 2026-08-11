@@ -10,23 +10,25 @@ function RecipeTable({ recipes, onEdit, onDelete, onToggleStatus }) {
       <table className="w-full table-fixed">
         <thead className="bg-blue-50 border-b border-blue-100">
           <tr>
-            <th className={th + " w-[19%]"}>Món ăn</th>
-            <th className={th + " w-[19%]"}>Nguyên liệu</th>
-            <th className={th + " w-[9%]"}>Số lượng</th>
-            <th className={th + " w-[9%]"}>ĐVT</th>
-            <th className={th + " w-[14%]"}>Ghi chú</th>
-            <th className={th + " w-[16%]"}>Hoạt động</th>
+            <th className={th + " w-[9%]"}>Mã món</th>
+            <th className={th + " w-[16%]"}>Món ăn</th>
+            <th className={th + " w-[17%]"}>Nguyên liệu</th>
+            <th className={th + " w-[8%]"}>Số lượng</th>
+            <th className={th + " w-[8%]"}>ĐVT</th>
+            <th className={th + " w-[13%]"}>Ghi chú</th>
+            <th className={th + " w-[15%]"}>Hoạt động</th>
             <th className={th + " w-[14%] text-right"}>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {recipes.length === 0 && (
-            <tr><td className={td + ' text-center text-stone-400'} colSpan={7}>Không tìm thấy dữ liệu.</td></tr>
+            <tr><td className={td + ' text-center text-stone-400'} colSpan={8}>Không tìm thấy dữ liệu.</td></tr>
           )}
           {recipes.map((r) => {
             const active = r.trang_thai === 'Hoat_dong';
             return (
               <tr key={r.ma_dinh_muc} className="hover:bg-stone-50 transition-colors">
+                <td className={td + ' text-stone-400'}>{r.ma_mon_an}</td>
                 <td className={td + ' font-medium text-stone-800 truncate'}>{r.ten_mon_an}</td>
                 <td className={td + ' truncate'}>{r.ten_nguyen_lieu}</td>
                 <td className={td}>{Number(r.so_luong_su_dung)}</td>

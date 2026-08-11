@@ -24,12 +24,48 @@ const getBills = async (req, res) => {
         dieuKienNgay += ' AND hd.thoi_gian_dong_ban <= ?';
         params.push(`${denNgay} 23:59:59`);
       }
+      const maHoaDon = (req.query.ma_hoa_don || '').trim();
+      if (maHoaDon) {
+        dieuKienNgay += ' AND hd.ma_hoa_don LIKE ?';
+        params.push(`%${maHoaDon}%`);
+      }
     }
 
     const sapXep =
       trangThai === 'Da_thanh_toan'
         ? 'hd.thoi_gian_dong_ban DESC'
         : 'hd.thoi_gian_mo_ban ASC';
+
+    // Lịch sử "Đã thanh toán" có thể rất dài (tra cứu theo khoảng ngày) nên phân trang;
+    // hàng chờ "Chờ thanh toán"/"Đang phục vụ" luôn ngắn nên trả về nguyên danh sách như cũ.
+    if (trangThai === 'Da_thanh_toan') {
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.max(1, parseInt(req.query.limit) || 20);
+      const offset = (page - 1) * limit;
+
+      const [countRows] = await pool.query(
+        `SELECT COUNT(*) AS total FROM HOA_DON hd WHERE hd.trang_thai = ? ${dieuKienNgay}`,
+        params
+      );
+      const total = countRows[0].total;
+
+      const [rows] = await pool.query(
+        `SELECT hd.ma_hoa_don, hd.ma_ban, b.ten_ban, kv.ten_khu_vuc,
+                hd.thoi_gian_mo_ban, hd.thoi_gian_dong_ban,
+                hd.tong_tien_truoc_giam, hd.tong_tien_thanh_toan,
+                hd.hinh_thuc_thanh_toan, hd.trang_thai,
+                (SELECT COUNT(*) FROM CHI_TIET_HOA_DON ct
+                 WHERE ct.ma_hoa_don = hd.ma_hoa_don AND ct.trang_thai != 'Da_huy') AS so_mon
+         FROM HOA_DON hd
+         JOIN BAN b ON hd.ma_ban = b.ma_ban
+         JOIN KHU_VUC kv ON b.ma_khu_vuc = kv.ma_khu_vuc
+         WHERE hd.trang_thai = ? ${dieuKienNgay}
+         ORDER BY ${sapXep}
+         LIMIT ${limit} OFFSET ${offset}`,
+        params
+      );
+      return res.json({ data: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
+    }
 
     const [rows] = await pool.query(
       `SELECT hd.ma_hoa_don, hd.ma_ban, b.ten_ban, kv.ten_khu_vuc,

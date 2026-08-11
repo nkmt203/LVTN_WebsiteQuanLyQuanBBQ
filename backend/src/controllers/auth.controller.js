@@ -2,7 +2,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const { SECRET, EXPIRES_IN } = require("../config/jwt");
-const { requireProfile } = require("../middlewares/auth.middleware");
 
 function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
