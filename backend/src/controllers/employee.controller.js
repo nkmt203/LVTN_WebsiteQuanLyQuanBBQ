@@ -48,7 +48,7 @@ const getAllEmployees = async (req, res) => {
       JOIN TAI_KHOAN tk ON nv.ma_tai_khoan = tk.ma_tai_khoan
       JOIN VAI_TRO vt ON nv.ma_vai_tro = vt.ma_vai_tro
       ${dieuKien}
-      ORDER BY nv.ma_nhan_vien DESC
+      ORDER BY (vt.ten_vai_tro = 'Admin') DESC, nv.ma_nhan_vien DESC
       LIMIT ${limit} OFFSET ${offset}
       `,
       params,
@@ -94,6 +94,16 @@ const createEmployee = async (req, res) => {
     }
     if (!SDT_REGEX.test(so_dien_thoai.trim())) {
       return res.status(400).json({ message: "Số điện thoại không đúng định dạng" });
+    }
+
+    const [trung] = await pool.query(
+      `SELECT ma_nhan_vien FROM NHAN_VIEN WHERE so_dien_thoai = ?`,
+      [so_dien_thoai.trim()],
+    );
+    if (trung.length > 0) {
+      return res.status(400).json({
+        message: "Số điện thoại đã được sử dụng bởi nhân viên khác",
+      });
     }
 
     const [tk] = await pool.query(
@@ -146,6 +156,16 @@ const updateEmployee = async (req, res) => {
     }
     if (!SDT_REGEX.test(so_dien_thoai.trim())) {
       return res.status(400).json({ message: "Số điện thoại không đúng định dạng" });
+    }
+
+    const [trung] = await pool.query(
+      `SELECT ma_nhan_vien FROM NHAN_VIEN WHERE so_dien_thoai = ? AND ma_nhan_vien <> ?`,
+      [so_dien_thoai.trim(), id],
+    );
+    if (trung.length > 0) {
+      return res.status(400).json({
+        message: "Số điện thoại đã được sử dụng bởi nhân viên khác",
+      });
     }
 
     const [result] = await pool.query(

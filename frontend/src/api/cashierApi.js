@@ -1,8 +1,8 @@
 import axiosClient from './axiosClient';
 
-export const getBills = (trang_thai, tu_ngay, den_ngay) =>
+export const getBills = (trang_thai, tu_ngay, den_ngay, page, limit, ma_hoa_don) =>
   axiosClient
-    .get('/cashier/bills', { params: { trang_thai, tu_ngay, den_ngay } })
+    .get('/cashier/bills', { params: { trang_thai, tu_ngay, den_ngay, page, limit, ma_hoa_don } })
     .then((r) => r.data);
 
 export const getRevenueSummary = (tu_ngay, den_ngay) =>

@@ -59,7 +59,7 @@ const getInventory = async (req, res) => {
       JOIN DON_VI_TINH dvt ON nl.ma_don_vi_tinh = dvt.ma_don_vi_tinh
       LEFT JOIN KHO_NGUYEN_LIEU k ON nl.ma_nguyen_lieu = k.ma_nguyen_lieu
       ${dieuKien}
-      ORDER BY nl.ten_nguyen_lieu ASC
+      ORDER BY FIELD(COALESCE(k.trang_thai_ton, 'Het_hang'), 'Het_hang', 'Sap_het', 'Con_hang'), nl.ten_nguyen_lieu ASC
       LIMIT ${limit} OFFSET ${offset}
       `,
       params,

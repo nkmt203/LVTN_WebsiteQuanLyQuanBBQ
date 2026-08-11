@@ -230,9 +230,10 @@ function TableCard({ ban, onClick, onShowQr }) {
             onShowQr(ban);
           }}
           title="Xem / in mã QR gọi món"
-          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-white hover:text-teal-600 transition-colors"
+          className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-lg text-stone-400 hover:bg-white hover:text-teal-600 transition-colors"
         >
           <QrCode className="h-4 w-4" />
+          <span className="text-xs font-medium">Mã QR</span>
         </button>
       )}
     </div>

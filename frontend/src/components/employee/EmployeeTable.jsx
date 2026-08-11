@@ -25,6 +25,7 @@ function EmployeeTable({ employees, onEdit, onToggleStatus }) {
           )}
           {employees.map((nv) => {
             const active = nv.trang_thai === 'Hoat_dong';
+            const isAdmin = nv.ten_vai_tro === 'Admin';
             return (
               <tr key={nv.ma_nhan_vien} className="hover:bg-stone-50 transition-colors">
                 <td className={td}>{nv.ma_nhan_vien}</td>
@@ -33,27 +34,31 @@ function EmployeeTable({ employees, onEdit, onToggleStatus }) {
                 <td className={td}>{nv.ten_dang_nhap}</td>
                 <td className={td}>{nv.ten_vai_tro}</td>
                 <td className={td}>
-                  <div className="flex items-center gap-2">
-                    <ToggleSwitch
-                      checked={active}
-                      onChange={() => onToggleStatus(nv)}
-                      title={
-                        active
-                          ? "Hoạt động — bấm để ngừng hoạt động"
-                          : "Ngừng hoạt động — bấm để kích hoạt lại"
-                      }
-                      onLabel="Hoạt động"
-                      offLabel="Ngừng hoạt động"
-                    />
-                    <span
-                      className={
-                        "text-xs font-medium " +
-                        (active ? "text-blue-700" : "text-stone-400")
-                      }
-                    >
-                      {active ? "Hoạt động" : "Ngừng hoạt động"}
-                    </span>
-                  </div>
+                  {isAdmin ? (
+                    <span className="text-xs font-medium text-blue-700">Hoạt động</span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <ToggleSwitch
+                        checked={active}
+                        onChange={() => onToggleStatus(nv)}
+                        title={
+                          active
+                            ? "Hoạt động — bấm để ngừng hoạt động"
+                            : "Ngừng hoạt động — bấm để kích hoạt lại"
+                        }
+                        onLabel="Hoạt động"
+                        offLabel="Ngừng hoạt động"
+                      />
+                      <span
+                        className={
+                          "text-xs font-medium " +
+                          (active ? "text-blue-700" : "text-stone-400")
+                        }
+                      >
+                        {active ? "Hoạt động" : "Ngừng hoạt động"}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className={td + ' whitespace-nowrap text-right'}>
                   <div className="flex items-center justify-end gap-1">

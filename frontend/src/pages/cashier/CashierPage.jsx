@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { getBills, getBillDetail, payBill, getRevenueSummary } from '../../api/cashierApi';
 import { getErrorMessage } from '../../api/errorHandler';
 import Modal from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination';
 
 const POLL_INTERVAL_MS = 5000;
+const PER_PAGE = 15;
 const today = () => new Date().toISOString().slice(0, 10);
 
 function CashierPage() {
@@ -16,7 +18,14 @@ function CashierPage() {
   // Tra cứu hóa đơn đã thanh toán theo khoảng ngày (tab "Đã thanh toán")
   const [tuNgay, setTuNgay] = useState(today());
   const [denNgay, setDenNgay] = useState(today());
+  const [maHoaDon, setMaHoaDon] = useState('');
   const [revenueSummary, setRevenueSummary] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  // 'ngay' = đang lọc theo khoảng ngày, 'ma' = đang tra cứu theo mã hóa đơn
+  // (2 kiểu lọc độc lập — tra mã hóa đơn không bị giới hạn bởi ngày đang chọn)
+  const [searchMode, setSearchMode] = useState('ngay');
 
   // Modal chi tiết bill
   const [detailOpen, setDetailOpen] = useState(false);
@@ -31,13 +40,29 @@ function CashierPage() {
   const [paidBill, setPaidBill] = useState(null);
 
   // ===== LOAD =====
-  const loadBills = async (trangThai = tab) => {
+  const loadBills = async (trangThai = tab, p = page) => {
     try {
-      const data =
-        trangThai === 'Da_thanh_toan'
-          ? await getBills(trangThai, tuNgay, denNgay)
-          : await getBills(trangThai);
-      setBills(data);
+      if (trangThai === 'Da_thanh_toan') {
+        const data = await getBills(trangThai, tuNgay, denNgay, p, PER_PAGE, '');
+        setBills(data.data || []);
+        setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        setPage(data.page || 1);
+      } else {
+        setBills(await getBills(trangThai));
+      }
+    } catch (err) {
+      setFeedback({ type: 'error', text: getErrorMessage(err) });
+    }
+  };
+
+  const searchByInvoice = async (p = page) => {
+    try {
+      const data = await getBills('Da_thanh_toan', '', '', p, PER_PAGE, maHoaDon);
+      setBills(data.data || []);
+      setTotal(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      setPage(data.page || 1);
     } catch (err) {
       setFeedback({ type: 'error', text: getErrorMessage(err) });
     }
@@ -53,22 +78,53 @@ function CashierPage() {
 
   useEffect(() => {
     const init = async () => {
-      await loadBills(tab);
+      setSearchMode('ngay');
+      await loadBills(tab, 1);
       if (tab === 'Da_thanh_toan') await loadRevenueSummary();
       setLoading(false);
     };
     init();
 
-    // Tab "Đã thanh toán" là lịch sử, không cần tự làm mới liên tục
+    // Tab "Đã thanh toán" là lịch sử, không cần tự làm mới liên tục;
+    // các tab khác tự làm mới, nhưng không ghi đè khi đang xem kết quả tra cứu mã HĐ
     if (tab !== 'Da_thanh_toan') {
       timerRef.current = setInterval(() => loadBills(tab), POLL_INTERVAL_MS);
       return () => clearInterval(timerRef.current);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const handleSearchHistory = async () => {
-    await loadBills('Da_thanh_toan');
+    setSearchMode('ngay');
+    await loadBills('Da_thanh_toan', 1);
     await loadRevenueSummary();
+  };
+
+  const handleSearchByInvoice = async () => {
+    setSearchMode('ma');
+    await searchByInvoice(1);
+  };
+
+  const handlePageChange = async (p) => {
+    if (searchMode === 'ma') await searchByInvoice(p);
+    else await loadBills('Da_thanh_toan', p);
+  };
+
+  const handleClearFilter = async () => {
+    setTuNgay(today());
+    setDenNgay(today());
+    setMaHoaDon('');
+    setSearchMode('ngay');
+    try {
+      const data = await getBills('Da_thanh_toan', today(), today(), 1, PER_PAGE, '');
+      setBills(data.data || []);
+      setTotal(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      setPage(data.page || 1);
+      setRevenueSummary(await getRevenueSummary(today(), today()));
+    } catch (err) {
+      setFeedback({ type: 'error', text: getErrorMessage(err) });
+    }
   };
 
   // ===== XEM CHI TIẾT =====
@@ -166,7 +222,26 @@ function CashierPage() {
             </div>
             <button onClick={handleSearchHistory}
                     className="bg-stone-800 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-stone-900">
-              Tra cứu
+              Lọc theo ngày
+            </button>
+
+            <div className="w-px self-stretch bg-stone-200 mx-1" />
+
+            <div>
+              <label className="text-xs text-stone-500 block mb-1">Mã hóa đơn</label>
+              <input type="text" value={maHoaDon} onChange={(e) => setMaHoaDon(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && handleSearchByInvoice()}
+                     placeholder="VD: 1505"
+                     className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-28" />
+            </div>
+            <button onClick={handleSearchByInvoice}
+                    disabled={!maHoaDon.trim()}
+                    className="bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-40">
+              Tra cứu mã HĐ
+            </button>
+            <button onClick={handleClearFilter}
+                    className="px-4 py-1.5 rounded-lg text-sm font-medium border border-stone-300 text-stone-600 hover:bg-stone-50">
+              Xóa lọc
             </button>
           </div>
 
@@ -213,6 +288,17 @@ function CashierPage() {
               onPay={handleOpenPay}
             />
           ))}
+        </div>
+      )}
+
+      {tab === 'Da_thanh_toan' && totalPages > 1 && (
+        <div className="mt-4">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 
